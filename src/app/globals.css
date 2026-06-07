@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --blue: #1565c0;
+  --blue-l: #e3f2fd;
+  --blue-m: #1976d2;
+  --green: #2e7d32;
+  --green-l: #e8f5e9;
+  --amber: #e65100;
+  --amber-l: #fff8e1;
+  --red: #c62828;
+  --red-l: #ffebee;
+  --teal: #00695c;
+  --teal-l: #e0f2f1;
+  --purple: #6a1b9a;
+  --purple-l: #f3e5f5;
+  --card: #ffffff;
+  --bg: #f4f6f9;
+  --bd: #e2e8f0;
+  --t1: #1e293b;
+  --t2: #64748b;
+  --t3: #94a3b8;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--t1);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.mono {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.3s infinite;
+}
+
+.dashboard-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dashboard-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
 }

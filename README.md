@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ISP Log Server
 
-## Getting Started
+Multi-tenant ISP log management platform — Next.js 16, PostgreSQL, BTRC compliance, premium dashboard.
 
-First, run the development server:
+## PHASE 1 Status: ✅ COMPLETE
+
+| Step | Item | Status |
+|------|------|--------|
+| 1.1 | Next.js + TypeScript + Tailwind | ✅ |
+| 1.2 | Dependencies (pg, next-auth, bcryptjs, axios, zustand, lucide-react) | ✅ |
+| 1.3 | Folder structure | ✅ |
+| 1.4 | Environment (.env.local) | ✅ |
+| 1.5 | Database connection (`src/lib/db.ts`) | ✅ |
+| 1.6 | PostgreSQL schema (`scripts/init-db.sql`) | ✅ |
+| 1.7 | Health endpoint tested | ✅ |
+
+Verify everything:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run verify:phase1
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Quick Start
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+copy .env.example .env.local
+psql -U loguser -d isp_logserver -f scripts/init-db.sql
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open http://localhost:3000 → Login → Dashboard
 
-## Learn More
+## Documentation
 
-To learn more about Next.js, take a look at the following resources:
+| Doc | Description |
+|-----|-------------|
+| [PHASE 1 Complete](docs/PHASE_1.md) | Full PHASE 1 checklist & steps |
+| [Code Reference](docs/CODE_REFERENCE.md) | All files & API routes |
+| [Ready to Start](docs/READY_TO_START_GUIDE.md) | 15-min setup guide |
+| [BTRC Integration](docs/BTRC_INTEGRATION.md) | Regulatory export/submit |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Routes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Route | Description |
+|-------|-------------|
+| `/auth/login` | User login |
+| `/auth/super-admin` | Super admin portal |
+| `/dashboard` | Premium 14-section dashboard |
+| `/admin` | Super admin panel |
+| `/api/health` | Database health check |
 
-## Deploy on Vercel
+## Demo Credentials
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**User:** `admin@cyberlink.com` / `Admin@123456`  
+**Super Admin:** `superadmin@cyberlink.com` / `Super@Secure2026!` / code `CYBER-LINK-2026`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+```bash
+npm run dev              # Development
+npm run build            # Production build
+npm run type-check       # TypeScript
+npm run verify:phase1    # PHASE 1 verification
+npm run db:init          # Apply database schema
+```
+
+## Tech Stack
+
+Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · PostgreSQL · NextAuth · Chart.js
+
+## Next Phase
+
+PHASE 2 — Extended database schema & tenant provisioning. Send document when ready.
