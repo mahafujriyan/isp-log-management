@@ -9,7 +9,9 @@
     "lint": "eslint",
     "type-check": "tsc --noEmit",
     "verify:phase1": "node scripts/verify-phase1.mjs",
-    "db:init": "psql -U loguser -d isp_logserver -f scripts/init-db.sql"
+    "verify:phase2": "node scripts/verify-phase2.mjs",
+    "db:init": "cd scripts && psql -U loguser -d isp_logserver -f init-db.sql",
+    "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql"
   },
   "dependencies": {
     "axios": "^1.17.0",

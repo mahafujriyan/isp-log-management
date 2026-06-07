@@ -15,6 +15,7 @@ export interface Tenant {
   admin_email: string;
   schema_name: string;
   plan_id: number;
+  plan_name?: string;
   status: string;
   activated_at: string;
   expires_at: string;
@@ -55,4 +56,28 @@ export interface Device {
   listen_port: number;
   status: "online" | "offline" | "receiving";
   users_today: number;
+}
+
+export interface SyslogEntry {
+  id: number;
+  received_at: string;
+  pppoe_user: string | null;
+  mac_address: string | null;
+  user_ip: string | null;
+  user_port: number | null;
+  nat_ip: string | null;
+  nat_port: number | null;
+  visited_ip: string | null;
+  visited_port: number | null;
+  protocol: string | null;
+  country_code: string | null;
+  city: string | null;
+  raw_message: string | null;
+}
+
+export interface CreateTenantInput {
+  admin_name: string;
+  admin_email: string;
+  plan_id: number;
+  expires_in_days?: number;
 }

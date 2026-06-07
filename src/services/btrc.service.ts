@@ -8,6 +8,7 @@ import type {
 import { BTRC_CONFIG, getDefaultBtrcConfig } from "@/config/btrc.config";
 import { db } from "@/lib/database";
 import { generateMockLogEntry } from "@/services/mock-data.service";
+import { getLogsAcrossTenants } from "@/services/syslog.service";
 import {
   generateBatchId,
   hashPayload,
@@ -80,6 +81,13 @@ export async function fetchLogsForBtrc(
   to?: string,
   limit = 500
 ): Promise<LogEntry[]> {
+  try {
+    const tenantLogs = await getLogsAcrossTenants({ from, to, limit });
+    if (tenantLogs.length > 0) return tenantLogs;
+  } catch {
+    // fall through to legacy table
+  }
+
   try {
     const params: unknown[] = [];
     let query = `SELECT log_time, pppoe_user, mac_address AS mac, private_ip::text AS user_ip,

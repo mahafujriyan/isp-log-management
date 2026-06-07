@@ -14,3 +14,9 @@ export {
   recordsToJsonPayload,
   submitToBtrcApi,
 } from "@/utils/btrc.utils";
+
+export {
+  isValidTenantSchemaName,
+  assertValidTenantSchema,
+  buildTenantSchemaName,
+} from "@/utils/schema.utils";

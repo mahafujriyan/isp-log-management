@@ -1,11 +1,10 @@
-import { db } from "@/lib/database";
+import { auth } from "@/services/auth.service";
+import { createTenant, listTenants } from "@/services/tenant.service";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const tenants = await db.getMany(
-      "SELECT * FROM public.tenants ORDER BY created_at DESC"
-    );
+    const tenants = await listTenants();
     return NextResponse.json(tenants);
   } catch (error) {
     return NextResponse.json(
@@ -16,18 +15,28 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!session || (role !== "super_admin" && role !== "operator")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
-    const { admin_name, admin_email, plan_id } = await request.json();
-    const schema_name = `tenant_${Date.now()}`;
+    const body = await request.json();
+    const tenant = await createTenant({
+      admin_name: body.admin_name,
+      admin_email: body.admin_email,
+      plan_id: Number(body.plan_id ?? 1),
+      expires_in_days: body.expires_in_days ? Number(body.expires_in_days) : 90,
+    });
 
-    const result = await db.getOne(
-      `INSERT INTO public.tenants (admin_name, admin_email, schema_name, plan_id, expires_at)
-       VALUES ($1, $2, $3, $4, NOW() + INTERVAL '90 days')
-       RETURNING *`,
-      [admin_name, admin_email, schema_name, plan_id ?? 1]
+    return NextResponse.json(
+      {
+        ...tenant,
+        message: `Tenant created with isolated schema ${tenant.schema_name}`,
+      },
+      { status: 201 }
     );
-
-    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: "Creation failed", detail: error instanceof Error ? error.message : "Unknown" },

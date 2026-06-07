@@ -1,22 +1,29 @@
 import { NextResponse } from "next/server";
-import { generateMockLogEntry } from "@/services/mock-data.service";
+import { resolveLogsQuery } from "@/services/syslog.service";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(Number(searchParams.get("limit") ?? 50), 200);
-  const user = searchParams.get("user")?.toLowerCase();
+  const limit = Math.min(Number(searchParams.get("limit") ?? 50), 500);
+  const user = searchParams.get("user") ?? undefined;
+  const from = searchParams.get("from") ?? undefined;
+  const to = searchParams.get("to") ?? undefined;
+  const schema = searchParams.get("schema") ?? undefined;
+  const tenantIdParam = searchParams.get("tenant_id");
+  const tenant_id = tenantIdParam ? Number(tenantIdParam) : undefined;
 
-  let logs = Array.from({ length: limit }, () => generateMockLogEntry());
+  const { logs, source, schema_name } = await resolveLogsQuery({
+    tenant_id: tenant_id && !Number.isNaN(tenant_id) ? tenant_id : undefined,
+    schema,
+    limit,
+    from,
+    to,
+    user,
+  });
 
-  if (user) {
-    logs = logs.filter(
-      (l) =>
-        l.pppoe_user.toLowerCase().includes(user) ||
-        l.user_ip.includes(user) ||
-        l.visited_ip.includes(user) ||
-        l.mac.toLowerCase().includes(user)
-    );
-  }
-
-  return NextResponse.json({ logs, count: logs.length });
+  return NextResponse.json({
+    logs,
+    count: logs.length,
+    source,
+    schema_name,
+  });
 }

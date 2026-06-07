@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.tenants (
   admin_name VARCHAR(128) NOT NULL,
   admin_email VARCHAR(256) NOT NULL,
   schema_name VARCHAR(128) UNIQUE NOT NULL,
-  plan_id INT REFERENCES public.plans(id),
+  plan_id INT NOT NULL REFERENCES public.plans(id) DEFAULT 1,
   status VARCHAR(32) DEFAULT 'active',
   activated_at TIMESTAMPTZ DEFAULT NOW(),
   expires_at TIMESTAMPTZ NOT NULL,
@@ -101,3 +101,23 @@ CREATE INDEX IF NOT EXISTS idx_nat_logs_btrc ON public.nat_logs(btrc_exported, l
 INSERT INTO public.btrc_config (isp_license, isp_name, retention_days, contact_email)
 SELECT 'ISP-BD-CYBER-2024', 'Cyber Link Communication', 180, 'admin@cyberlink.com'
 WHERE NOT EXISTS (SELECT 1 FROM public.btrc_config LIMIT 1);
+
+-- PHASE 2: Multi-tenant schema provisioning
+\i sql/tenant-schema-function.sql
+
+SELECT public.create_tenant_schema('tenant_001');
+
+INSERT INTO public.tenants (admin_name, admin_email, schema_name, plan_id, status, expires_at)
+SELECT 'Cyber Link Demo', 'demo@cyberlink.com', 'tenant_001', 1, 'active', NOW() + INTERVAL '365 days'
+WHERE NOT EXISTS (SELECT 1 FROM public.tenants WHERE schema_name = 'tenant_001');
+
+INSERT INTO tenant_001.syslogs (
+  pppoe_user, mac_address, user_ip, user_port, nat_ip, nat_port,
+  visited_ip, visited_port, protocol, country_code, city
+)
+SELECT * FROM (VALUES
+  ('clc05@sohel3', 'CC:2D:21:3F:BC:D0', '10.55.120.44'::inet, 51234, '160.187.175.136'::inet, 443, '142.250.185.46'::inet, 443, 'TCP', 'US', 'Mountain View'),
+  ('01baharuddin', '50:3D:D1:B2:74:B6', '10.55.88.12'::inet, 49821, '160.187.175.137'::inet, 8080, '104.21.45.12'::inet, 443, 'TCP', 'US', 'San Francisco'),
+  ('shohid', 'D8:32:14:9C:13:B0', '10.56.10.200'::inet, 60102, '160.187.175.138'::inet, 53, '8.8.8.8'::inet, 53, 'UDP', 'US', NULL)
+) AS v(pppoe_user, mac_address, user_ip, user_port, nat_ip, nat_port, visited_ip, visited_port, protocol, country_code, city)
+WHERE NOT EXISTS (SELECT 1 FROM tenant_001.syslogs LIMIT 1);
