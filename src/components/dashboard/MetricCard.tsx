@@ -1,7 +1,11 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
 
 interface MetricCardProps {
-  label: string;
+  /** Primary label (alias: `title` from PHASE 3 spec) */
+  label?: string;
+  title?: string;
   value: string | number;
   sub?: string;
   color?: "blue" | "green" | "amber" | "teal" | "red" | "purple";
@@ -50,12 +54,14 @@ const colorMap = {
 
 export function MetricCard({
   label,
+  title,
   value,
   sub,
   color = "blue",
   icon: Icon,
   trend,
 }: MetricCardProps) {
+  const displayLabel = label ?? title ?? "";
   const c = colorMap[color];
 
   return (
@@ -64,7 +70,7 @@ export function MetricCard({
       <div className="relative flex items-start justify-between">
         <div className="flex-1">
           <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#94A3B8]">
-            {label}
+            {displayLabel}
           </div>
           <div className={`text-[26px] font-semibold tabular-nums tracking-tight ${c.text}`}>
             {typeof value === "number" ? value.toLocaleString() : value}

@@ -1,6 +1,4 @@
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { AUTH_CONFIG, getSuperAdminSecurityCode } from "@/config/auth.config";
+import { AUTH_CONFIG } from "@/config/auth.config";
 import { db } from "@/lib/database";
 import type { AuthPortal, AuthUser } from "@/types/auth.types";
 
@@ -52,54 +50,3 @@ export async function authenticateUser(
     role: demo.role,
   };
 }
-
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        portal: { label: "Portal", type: "text" },
-        securityCode: { label: "Security Code", type: "text" },
-      },
-      async authorize(credentials) {
-        const email = credentials?.email as string | undefined;
-        const password = credentials?.password as string | undefined;
-        const portal = (credentials?.portal as AuthPortal | undefined) ?? "user";
-        const securityCode = credentials?.securityCode as string | undefined;
-
-        if (!email || !password) return null;
-
-        if (portal === "super_admin") {
-          if (securityCode !== getSuperAdminSecurityCode()) {
-            throw new Error("Invalid security authorization code");
-          }
-        }
-
-        return authenticateUser(email, password, portal);
-      },
-    }),
-  ],
-  pages: {
-    signIn: AUTH_CONFIG.pages.signIn,
-  },
-  session: AUTH_CONFIG.session,
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as AuthUser).role;
-        token.username = user.name ?? undefined;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.role = token.role as string;
-        session.user.username = token.username as string;
-      }
-      return session;
-    },
-  },
-  trustHost: true,
-});

@@ -1,5 +1,5 @@
 import { ROUTES } from "@/constants/routes.constants";
-import { auth } from "@/services/auth.service";
+import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {

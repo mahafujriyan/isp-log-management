@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/services/auth.service";
+import { auth } from "@/auth";
 import { getComplianceStatus, getSubmissionHistory } from "@/services/btrc.service";
 
 export async function GET() {

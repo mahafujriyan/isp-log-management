@@ -17,6 +17,7 @@ import {
   Shield,
   Users,
 } from "lucide-react";
+import { NavLink } from "@/components/shared/NavLink";
 import type { DashboardPageId } from "@/types";
 
 interface NavItem {
@@ -54,44 +55,6 @@ interface SidebarProps {
   streamCount?: number;
 }
 
-function NavButton({
-  item,
-  active,
-  onClick,
-}: {
-  item: NavItem;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group mx-2 flex w-[calc(100%-16px)] items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all ${
-        active
-          ? "bg-gradient-to-r from-[#1565C0] to-[#1976D2] font-medium text-white shadow-md shadow-blue-600/25"
-          : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-      }`}
-    >
-      <span className={`${active ? "text-white" : "text-[#94A3B8] group-hover:text-[#1565C0]"}`}>
-        {item.icon}
-      </span>
-      <span className="flex-1 text-left">{item.label}</span>
-      {item.badge !== undefined && item.badge > 0 && (
-        <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
-            active
-              ? "bg-white/20 text-white"
-              : "bg-[#E3F2FD] text-[#1565C0]"
-          }`}
-        >
-          {item.badge > 999 ? "999+" : item.badge}
-        </span>
-      )}
-    </button>
-  );
-}
-
 function NavSection({ label }: { label: string }) {
   return (
     <div className="px-5 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8]">
@@ -126,9 +89,11 @@ export function Sidebar({ activePage, onNavigate, streamCount = 0 }: SidebarProp
       <div className="dashboard-scroll flex-1 overflow-y-auto py-1">
         <NavSection label="Main" />
         {streamNav.map((item) => (
-          <NavButton
+          <NavLink
             key={item.id}
-            item={item}
+            label={item.label}
+            icon={item.icon}
+            badge={item.badge}
             active={activePage === item.id}
             onClick={() => onNavigate(item.id)}
           />
@@ -136,9 +101,10 @@ export function Sidebar({ activePage, onNavigate, streamCount = 0 }: SidebarProp
 
         <NavSection label="Admin" />
         {adminNav.map((item) => (
-          <NavButton
+          <NavLink
             key={item.id}
-            item={item}
+            label={item.label}
+            icon={item.icon}
             active={activePage === item.id}
             onClick={() => onNavigate(item.id)}
           />
@@ -146,9 +112,10 @@ export function Sidebar({ activePage, onNavigate, streamCount = 0 }: SidebarProp
 
         <NavSection label="System" />
         {systemNav.map((item) => (
-          <NavButton
+          <NavLink
             key={item.id}
-            item={item}
+            label={item.label}
+            icon={item.icon}
             active={activePage === item.id}
             onClick={() => onNavigate(item.id)}
           />

@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit",
     "verify:phase1": "node scripts/verify-phase1.mjs",
     "verify:phase2": "node scripts/verify-phase2.mjs",
+    "verify:phase3": "node scripts/verify-phase3.mjs",
     "db:init": "cd scripts && psql -U loguser -d isp_logserver -f init-db.sql",
     "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql"
   },

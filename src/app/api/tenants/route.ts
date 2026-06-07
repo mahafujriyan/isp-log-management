@@ -1,4 +1,4 @@
-import { auth } from "@/services/auth.service";
+import { auth } from "@/auth";
 import { createTenant, listTenants } from "@/services/tenant.service";
 import { NextResponse } from "next/server";
 

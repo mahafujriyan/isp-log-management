@@ -1,4 +1,5 @@
-export { auth, handlers, signIn, signOut, authenticateUser } from "@/services/auth.service";
+export { auth, handlers, signIn, signOut } from "@/auth";
+export { authenticateUser } from "@/services/auth.service";
 export {
   loadBtrcConfig,
   saveBtrcConfig,
