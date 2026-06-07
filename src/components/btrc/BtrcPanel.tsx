@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MetricCard, PanelCard } from "@/components/dashboard/MetricCard";
 import { Tag } from "@/components/shared/Tag";
-import type { BtrcConfig, BtrcSubmission } from "@/lib/btrc";
+import type { BtrcConfig, BtrcSubmission } from "@/types";
 import {
   AlertTriangle,
   CheckCircle2,

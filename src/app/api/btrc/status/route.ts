@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { getComplianceStatus, getSubmissionHistory } from "@/lib/btrc-service";
+import { auth } from "@/services/auth.service";
+import { getComplianceStatus, getSubmissionHistory } from "@/services/btrc.service";
 
 export async function GET() {
   const session = await auth();

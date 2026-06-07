@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { submitBtrcBatch } from "@/lib/btrc-service";
+import { auth } from "@/services/auth.service";
+import { submitBtrcBatch } from "@/services/btrc.service";
 
 export async function POST(request: Request) {
   const session = await auth();

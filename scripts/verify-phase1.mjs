@@ -32,9 +32,15 @@ else fail("Node.js 20+", `Found ${process.version}`);
 
 // Required files
 const requiredFiles = [
-  "src/lib/db.ts",
-  "src/lib/auth.ts",
-  "src/lib/types.ts",
+  "src/lib/database.ts",
+  "src/services/auth.service.ts",
+  "src/services/btrc.service.ts",
+  "src/services/mock-data.service.ts",
+  "src/config/env.config.ts",
+  "src/config/app.config.ts",
+  "src/constants/routes.constants.ts",
+  "src/utils/date.utils.ts",
+  "src/types/index.ts",
   "src/app/api/health/route.ts",
   "src/app/api/tenants/route.ts",
   "src/app/api/logs/route.ts",

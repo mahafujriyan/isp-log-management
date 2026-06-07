@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar, PAGE_TITLES } from "@/components/shared/Sidebar";
+import { Sidebar } from "@/components/shared/Sidebar";
+import { PAGE_TITLES } from "@/constants/navigation.constants";
 import { MetricCard, ChartCard, PanelCard } from "@/components/dashboard/MetricCard";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { LogsTable } from "@/components/dashboard/LogsTable";
@@ -13,14 +14,14 @@ import {
 } from "@/components/dashboard/DashboardCharts";
 import { BtrcPanel } from "@/components/btrc/BtrcPanel";
 import { Tag } from "@/components/shared/Tag";
-import type { DashboardPageId, LogEntry } from "@/lib/types";
+import type { DashboardPageId, LogEntry } from "@/types";
 import {
   DEMO_ADMIN_USERS,
   DEMO_DEVICES,
   generateMockLogEntry,
   getHourlyLogCounts,
   getPortDistribution,
-} from "@/lib/mock-data";
+} from "@/services/mock-data.service";
 import {
   ChevronDown,
   Download,

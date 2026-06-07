@@ -1,4 +1,5 @@
-import { auth } from "@/lib/auth";
+import { ROUTES } from "@/constants/routes.constants";
+import { auth } from "@/services/auth.service";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
@@ -7,38 +8,39 @@ export default auth((req) => {
   const role = req.auth?.user?.role;
 
   const isAuthPage =
-    pathname.startsWith("/auth/login") || pathname.startsWith("/auth/super-admin");
+    pathname.startsWith(ROUTES.auth.login) ||
+    pathname.startsWith(ROUTES.auth.superAdmin);
   const isProtected =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
+    pathname.startsWith(ROUTES.dashboard) || pathname.startsWith(ROUTES.admin);
 
   if (isProtected && !isLoggedIn) {
-    const loginUrl = pathname.startsWith("/admin")
-      ? new URL("/auth/super-admin", req.url)
-      : new URL("/auth/login", req.url);
+    const loginUrl = pathname.startsWith(ROUTES.admin)
+      ? new URL(ROUTES.auth.superAdmin, req.url)
+      : new URL(ROUTES.auth.login, req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname.startsWith("/admin") && isLoggedIn && role !== "super_admin") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+  if (pathname.startsWith(ROUTES.admin) && isLoggedIn && role !== "super_admin") {
+    return NextResponse.redirect(new URL(ROUTES.dashboard, req.url));
   }
 
   if (isAuthPage && isLoggedIn) {
     const target =
-      role === "super_admin" && pathname.startsWith("/auth/super-admin")
-        ? "/admin"
-        : "/dashboard";
+      role === "super_admin" && pathname.startsWith(ROUTES.auth.superAdmin)
+        ? ROUTES.admin
+        : ROUTES.dashboard;
     return NextResponse.redirect(new URL(target, req.url));
   }
 
-  if (pathname === "/" && isLoggedIn) {
+  if (pathname === ROUTES.home && isLoggedIn) {
     return NextResponse.redirect(
-      new URL(role === "super_admin" ? "/admin" : "/dashboard", req.url)
+      new URL(role === "super_admin" ? ROUTES.admin : ROUTES.dashboard, req.url)
     );
   }
 
-  if (pathname === "/" && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/auth/login", req.url));
+  if (pathname === ROUTES.home && !isLoggedIn) {
+    return NextResponse.redirect(new URL(ROUTES.auth.login, req.url));
   }
 
   return NextResponse.next();

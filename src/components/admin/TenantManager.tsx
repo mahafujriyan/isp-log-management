@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Tenant } from "@/lib/types";
+import type { Tenant } from "@/types";
 import { Database, Plus, Shield } from "lucide-react";
 
 interface TenantManagerProps {

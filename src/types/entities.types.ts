@@ -44,14 +44,6 @@ export interface LogEntry {
   protocol?: string;
 }
 
-export interface DashboardMetrics {
-  totalLogs: number;
-  activeUsers: number;
-  devices: number;
-  diskUsedGb: number;
-  diskTotalGb: number;
-}
-
 export interface Device {
   id: number;
   name: string;
@@ -64,18 +56,3 @@ export interface Device {
   status: "online" | "offline" | "receiving";
   users_today: number;
 }
-
-export type DashboardPageId =
-  | "dashboard"
-  | "stream"
-  | "devices"
-  | "search"
-  | "disabled"
-  | "usermgr"
-  | "rolemgr"
-  | "servermgr"
-  | "menumgr"
-  | "serviceinfo"
-  | "company"
-  | "btrc"
-  | "faq";

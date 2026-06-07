@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { exportBtrcData } from "@/lib/btrc-service";
+import { auth } from "@/services/auth.service";
+import { exportBtrcData } from "@/services/btrc.service";
 
 export async function GET(request: Request) {
   const session = await auth();

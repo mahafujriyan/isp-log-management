@@ -1,26 +1,27 @@
-import type { LogEntry } from "@/lib/types";
+import type { LogEntry } from "@/types/entities.types";
+import type {
+  BtrcComplianceStatus,
+  BtrcConfig,
+  BtrcNatRecord,
+  BtrcSubmission,
+} from "@/types/btrc.types";
+import { BTRC_CONFIG, getDefaultBtrcConfig } from "@/config/btrc.config";
+import { db } from "@/lib/database";
+import { generateMockLogEntry } from "@/services/mock-data.service";
 import {
   generateBatchId,
-  getDefaultBtrcConfig,
   hashPayload,
   logEntryToBtrcRecord,
   recordsToCsv,
   recordsToJsonPayload,
   submitToBtrcApi,
-  type BtrcComplianceStatus,
-  type BtrcConfig,
-  type BtrcNatRecord,
-  type BtrcSubmission,
-  BTRC_MIN_RETENTION_DAYS,
-} from "@/lib/btrc";
-import { generateMockLogEntry } from "@/lib/mock-data";
+} from "@/utils";
 
 const memorySubmissions: BtrcSubmission[] = [];
 let memoryConfig: BtrcConfig | null = null;
 
 export async function loadBtrcConfig(): Promise<BtrcConfig> {
   try {
-    const { db } = await import("@/lib/db");
     const row = await db.getOne<BtrcConfig>(
       "SELECT * FROM public.btrc_config ORDER BY id DESC LIMIT 1"
     );
@@ -37,7 +38,6 @@ export async function loadBtrcConfig(): Promise<BtrcConfig> {
 export async function saveBtrcConfig(config: BtrcConfig): Promise<BtrcConfig> {
   memoryConfig = config;
   try {
-    const { db } = await import("@/lib/db");
     const existing = await db.getOne<{ id: number }>(
       "SELECT id FROM public.btrc_config ORDER BY id DESC LIMIT 1"
     );
@@ -51,14 +51,9 @@ export async function saveBtrcConfig(config: BtrcConfig): Promise<BtrcConfig> {
           updated_at = NOW()
          WHERE id = $9`,
         [
-          config.isp_license,
-          config.isp_name,
-          config.api_url,
-          config.auto_submit,
-          config.submit_interval_hours,
-          config.retention_days,
-          config.timezone,
-          config.contact_email,
+          config.isp_license, config.isp_name, config.api_url,
+          config.auto_submit, config.submit_interval_hours,
+          config.retention_days, config.timezone, config.contact_email,
           existing.id,
         ]
       );
@@ -68,14 +63,9 @@ export async function saveBtrcConfig(config: BtrcConfig): Promise<BtrcConfig> {
           (isp_license, isp_name, api_url, auto_submit, submit_interval_hours, retention_days, timezone, contact_email)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
-          config.isp_license,
-          config.isp_name,
-          config.api_url,
-          config.auto_submit,
-          config.submit_interval_hours,
-          config.retention_days,
-          config.timezone,
-          config.contact_email,
+          config.isp_license, config.isp_name, config.api_url,
+          config.auto_submit, config.submit_interval_hours,
+          config.retention_days, config.timezone, config.contact_email,
         ]
       );
     }
@@ -91,7 +81,6 @@ export async function fetchLogsForBtrc(
   limit = 500
 ): Promise<LogEntry[]> {
   try {
-    const { db } = await import("@/lib/db");
     const params: unknown[] = [];
     let query = `SELECT log_time, pppoe_user, mac_address AS mac, private_ip::text AS user_ip,
                         public_ip::text AS nat_ip, public_port AS nat_port,
@@ -158,30 +147,22 @@ export async function recordSubmission(
   memorySubmissions.unshift(entry);
 
   try {
-    const { db } = await import("@/lib/db");
     const row = await db.getOne<BtrcSubmission>(
       `INSERT INTO public.btrc_submissions
         (batch_id, record_count, period_from, period_to, status, response_code, response_message, file_hash, submitted_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
       [
-        submission.batch_id,
-        submission.record_count,
-        submission.period_from,
-        submission.period_to,
-        submission.status,
-        submission.response_code ?? null,
-        submission.response_message ?? null,
-        submission.file_hash ?? null,
-        submission.submitted_by ?? null,
+        submission.batch_id, submission.record_count,
+        submission.period_from, submission.period_to, submission.status,
+        submission.response_code ?? null, submission.response_message ?? null,
+        submission.file_hash ?? null, submission.submitted_by ?? null,
       ]
     );
     if (row) return row;
 
     if (submission.status === "success" || submission.status === "simulated") {
-      await db.query(
-        "UPDATE public.btrc_config SET last_submission_at = NOW(), updated_at = NOW()"
-      );
+      await db.query("UPDATE public.btrc_config SET last_submission_at = NOW(), updated_at = NOW()");
     }
   } catch {
     // memory only
@@ -192,7 +173,6 @@ export async function recordSubmission(
 
 export async function getSubmissionHistory(limit = 20): Promise<BtrcSubmission[]> {
   try {
-    const { db } = await import("@/lib/db");
     return await db.getMany<BtrcSubmission>(
       "SELECT * FROM public.btrc_submissions ORDER BY submitted_at DESC LIMIT $1",
       [limit]
@@ -210,11 +190,9 @@ export async function getComplianceStatus(): Promise<BtrcComplianceStatus> {
   let logsReady = 0;
   let logsPending = 0;
   try {
-    const { db } = await import("@/lib/db");
     const counts = await db.getOne<{ total: string; pending: string }>(
-      `SELECT
-         COUNT(*)::text AS total,
-         COUNT(*) FILTER (WHERE NOT btrc_exported)::text AS pending
+      `SELECT COUNT(*)::text AS total,
+              COUNT(*) FILTER (WHERE NOT btrc_exported)::text AS pending
        FROM public.nat_logs
        WHERE log_time >= NOW() - ($1 || ' days')::interval`,
       [String(config.retention_days)]
@@ -226,7 +204,7 @@ export async function getComplianceStatus(): Promise<BtrcComplianceStatus> {
     logsPending = 200;
   }
 
-  const retentionOk = config.retention_days >= BTRC_MIN_RETENTION_DAYS;
+  const retentionOk = config.retention_days >= BTRC_CONFIG.minRetentionDays;
   let nextAutoSubmit: string | null = null;
   if (config.auto_submit && config.last_submission_at) {
     const next = new Date(config.last_submission_at);
@@ -237,7 +215,7 @@ export async function getComplianceStatus(): Promise<BtrcComplianceStatus> {
   return {
     compliant: retentionOk && (last?.status === "success" || last?.status === "simulated"),
     retention_days: config.retention_days,
-    retention_required: BTRC_MIN_RETENTION_DAYS,
+    retention_required: BTRC_CONFIG.minRetentionDays,
     logs_ready: logsReady,
     logs_pending_export: logsPending || logsReady,
     last_submission: last?.submitted_at ?? config.last_submission_at ?? null,
@@ -278,7 +256,6 @@ export async function submitBtrcBatch(
 
   const periodFrom = from ?? new Date(Date.now() - 86400000).toISOString();
   const periodTo = to ?? new Date().toISOString();
-
   const result = await submitToBtrcApi(records, config, batchId);
 
   const submission = await recordSubmission({

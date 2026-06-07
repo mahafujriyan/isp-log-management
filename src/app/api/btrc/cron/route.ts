@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { submitBtrcBatch, loadBtrcConfig } from "@/lib/btrc-service";
+import { submitBtrcBatch, loadBtrcConfig } from "@/services/btrc.service";
 
 /** Scheduled auto-submit endpoint — protect with CRON_SECRET header */
 export async function POST(request: Request) {

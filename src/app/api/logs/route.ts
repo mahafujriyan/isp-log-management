@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateMockLogEntry } from "@/lib/mock-data";
+import { generateMockLogEntry } from "@/services/mock-data.service";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

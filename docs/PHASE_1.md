@@ -59,40 +59,18 @@ npm install
 
 ```
 src/
-├── app/
-│   ├── api/
-│   │   ├── auth/[...nextauth]/route.ts
-│   │   ├── health/route.ts
-│   │   ├── tenants/route.ts
-│   │   ├── logs/route.ts
-│   │   ├── users/route.ts
-│   │   └── dashboard/metrics/route.ts
-│   ├── dashboard/page.tsx
-│   ├── admin/page.tsx
-│   ├── auth/login/page.tsx
-│   ├── auth/super-admin/page.tsx
-│   ├── layout.tsx
-│   ├── page.tsx
-│   └── globals.css
-├── components/
-│   ├── shared/Sidebar.tsx
-│   ├── dashboard/MetricCard.tsx, LogsTable.tsx, DashboardApp.tsx
-│   └── admin/TenantManager.tsx
-├── hooks/useHealthCheck.ts
-└── lib/
-    ├── db.ts
-    ├── auth.ts
-    ├── auth-config.ts
-    └── types.ts
-scripts/
-├── init-db.sql
-├── btrc-migration.sql
-└── verify-phase1.mjs
-docs/
-├── PHASE_1.md          ← this file
-├── CODE_REFERENCE.md
-└── READY_TO_START_GUIDE.md
+├── app/              # Routes & API only
+├── components/       # UI layer
+├── config/           # env, app, auth, btrc settings
+├── constants/        # routes, navigation
+├── hooks/            # React hooks
+├── lib/              # database (infrastructure)
+├── services/         # business logic
+├── types/            # TypeScript interfaces
+└── utils/            # pure helper functions
 ```
+
+Full details: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 
 ---
 

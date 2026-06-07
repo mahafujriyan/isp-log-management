@@ -35,6 +35,7 @@ Open http://localhost:3000 → Login → Dashboard
 
 | Doc | Description |
 |-----|-------------|
+| [Project Structure](docs/PROJECT_STRUCTURE.md) | Premium folder architecture & import aliases |
 | [PHASE 1 Complete](docs/PHASE_1.md) | Full PHASE 1 checklist & steps |
 | [Code Reference](docs/CODE_REFERENCE.md) | All files & API routes |
 | [Ready to Start](docs/READY_TO_START_GUIDE.md) | 15-min setup guide |

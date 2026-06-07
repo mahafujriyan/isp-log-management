@@ -19,7 +19,12 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/config": ["./src/config/index.ts"],
+      "@/constants": ["./src/constants/index.ts"],
+      "@/types": ["./src/types/index.ts"],
+      "@/utils": ["./src/utils/index.ts"],
+      "@/services": ["./src/services/index.ts"]
     }
   },
   "include": [

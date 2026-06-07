@@ -1,4 +1,4 @@
-import type { LogEntry } from "@/lib/types";
+import type { LogEntry } from "@/types";
 import { protoTag } from "@/components/shared/Tag";
 
 interface LogsTableProps {
