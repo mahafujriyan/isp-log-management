@@ -13,6 +13,11 @@
     "verify:phase3": "node scripts/verify-phase3.mjs",
     "verify:phase4": "node scripts/verify-phase4.mjs",
     "verify:phase5": "node scripts/verify-phase5.mjs",
+    "verify:phase6": "node scripts/verify-phase6.mjs",
+    "verify:phase7": "node scripts/verify-phase7.mjs",
+    "verify:all": "node scripts/verify-phase1.mjs && node scripts/verify-phase2.mjs && node scripts/verify-phase3.mjs && node scripts/verify-phase4.mjs && node scripts/verify-phase5.mjs && node scripts/verify-phase6.mjs && node scripts/verify-phase7.mjs",
+    "start:prod": "next start",
+    "pm2:start": "pm2 start deploy/ecosystem.config.cjs",
     "db:init": "cd scripts && psql -U loguser -d isp_logserver -f init-db.sql",
     "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql"
   },

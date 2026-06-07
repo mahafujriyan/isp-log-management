@@ -2,30 +2,62 @@
 
 import { useEffect, useState } from "react";
 import type { Plan, Tenant } from "@/types";
-import { Database, Plus, Shield, X } from "lucide-react";
+import {
+  Ban,
+  CheckCircle,
+  Database,
+  MoreHorizontal,
+  Plus,
+  Shield,
+  X,
+} from "lucide-react";
 
 interface TenantManagerProps {
   variant?: "light" | "dark";
+  onTenantsChange?: (tenants: Tenant[]) => void;
 }
 
-export function TenantManager({ variant = "light" }: TenantManagerProps) {
+function statusStyle(status: string, dark: boolean) {
+  if (status === "active") {
+    return dark
+      ? "bg-green-500/10 text-green-400 ring-green-500/20"
+      : "bg-green-50 text-green-700 ring-green-200";
+  }
+  if (status === "suspended") {
+    return dark
+      ? "bg-red-500/10 text-red-400 ring-red-500/20"
+      : "bg-red-50 text-red-700 ring-red-200";
+  }
+  return dark
+    ? "bg-amber-500/10 text-amber-400 ring-amber-500/20"
+    : "bg-amber-50 text-amber-700 ring-amber-200";
+}
+
+export function TenantManager({ variant = "light", onTenantsChange }: TenantManagerProps) {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [planId, setPlanId] = useState(1);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const dark = variant === "dark";
+
+  function applyTenants(data: Tenant[]) {
+    setTenants(data);
+    onTenantsChange?.(data);
+  }
 
   async function loadTenants() {
     const res = await fetch("/api/tenants");
     const data = await res.json();
     if (Array.isArray(data)) {
-      setTenants(data);
+      applyTenants(data);
       setError(null);
     } else {
       setError(data.error ?? "Failed to load tenants");
@@ -38,7 +70,7 @@ export function TenantManager({ variant = "light" }: TenantManagerProps) {
       fetch("/api/plans").then((r) => r.json()),
     ])
       .then(([tenantData, planData]) => {
-        if (Array.isArray(tenantData)) setTenants(tenantData);
+        if (Array.isArray(tenantData)) applyTenants(tenantData);
         else setError(tenantData.error ?? "Failed to load tenants");
         if (Array.isArray(planData)) {
           setPlans(planData);
@@ -79,6 +111,23 @@ export function TenantManager({ variant = "light" }: TenantManagerProps) {
       setSubmitting(false);
     }
   }
+
+  async function updateStatus(tenantId: number, status: string) {
+    setUpdatingId(tenantId);
+    setOpenMenuId(null);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) await loadTenants();
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  const columns = ["ID", "Admin", "Email", "Schema", "Plan", "Status", "Created", "Expires", "Actions"];
 
   return (
     <div
@@ -198,7 +247,11 @@ export function TenantManager({ variant = "light" }: TenantManagerProps) {
       )}
 
       {error && (
-        <div className="rounded-md bg-[#FFF8E1] px-3 py-2 text-[12px] text-[#E65100]">
+        <div
+          className={`rounded-md px-3 py-2 text-[12px] ${
+            dark ? "bg-red-500/10 text-red-300" : "bg-[#FFF8E1] text-[#E65100]"
+          }`}
+        >
           {error}. Run <code>npm run db:phase2</code> and check DATABASE_URL.
         </div>
       )}
@@ -217,43 +270,105 @@ export function TenantManager({ variant = "light" }: TenantManagerProps) {
       )}
 
       {tenants.length > 0 && (
-        <table className="w-full text-sm">
-          <thead>
-            <tr
-              className={`border-b text-left text-xs ${
-                dark ? "border-white/10 text-slate-500" : "border-[#E2E8F0] text-[#64748B]"
-              }`}
-            >
-              {["ID", "Admin", "Email", "Schema", "Plan", "Status", "Expires"].map((h) => (
-                <th key={h} className="pb-3 pr-4 font-medium">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tenants.map((t) => (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px] text-sm">
+            <thead>
               <tr
-                key={t.id}
-                className={`border-b ${dark ? "border-white/5 text-slate-300" : "border-[#F1F5F9] text-[#475569]"}`}
+                className={`border-b text-left text-xs ${
+                  dark ? "border-white/10 text-slate-500" : "border-[#E2E8F0] text-[#64748B]"
+                }`}
               >
-                <td className="py-3 pr-4">{t.id}</td>
-                <td className={`py-3 pr-4 font-medium ${dark ? "text-white" : "text-[#0F172A]"}`}>
-                  {t.admin_name}
-                </td>
-                <td className="py-3 pr-4">{t.admin_email}</td>
-                <td className="mono py-3 pr-4">{t.schema_name}</td>
-                <td className="py-3 pr-4">{t.plan_name ?? `Plan #${t.plan_id}`}</td>
-                <td className="py-3 pr-4">
-                  <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-xs text-green-400">
-                    {t.status}
-                  </span>
-                </td>
-                <td className="py-3">{new Date(t.expires_at).toLocaleDateString()}</td>
+                {columns.map((h) => (
+                  <th key={h} className="pb-3 pr-4 font-medium">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {tenants.map((t) => (
+                <tr
+                  key={t.id}
+                  className={`border-b ${dark ? "border-white/5 text-slate-300" : "border-[#F1F5F9] text-[#475569]"}`}
+                >
+                  <td className="py-3 pr-4">{t.id}</td>
+                  <td className={`py-3 pr-4 font-medium ${dark ? "text-white" : "text-[#0F172A]"}`}>
+                    {t.admin_name}
+                  </td>
+                  <td className="py-3 pr-4">{t.admin_email}</td>
+                  <td className="mono py-3 pr-4 text-xs">{t.schema_name}</td>
+                  <td className="py-3 pr-4">{t.plan_name ?? `Plan #${t.plan_id}`}</td>
+                  <td className="py-3 pr-4">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs capitalize ring-1 ${statusStyle(t.status, dark)}`}
+                    >
+                      {t.status}
+                    </span>
+                  </td>
+                  <td className="py-3 pr-4 text-xs">
+                    {new Date(t.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="py-3 pr-4 text-xs">
+                    {new Date(t.expires_at).toLocaleDateString()}
+                  </td>
+                  <td className="relative py-3">
+                    <button
+                      type="button"
+                      disabled={updatingId === t.id}
+                      onClick={() => setOpenMenuId(openMenuId === t.id ? null : t.id)}
+                      className={`rounded-lg p-1.5 ${
+                        dark ? "hover:bg-white/10" : "hover:bg-[#F1F5F9]"
+                      }`}
+                      aria-label="Tenant actions"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    {openMenuId === t.id && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setOpenMenuId(null)}
+                        />
+                        <div
+                          className={`absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-xl border shadow-xl ${
+                            dark
+                              ? "border-white/10 bg-[#111827]"
+                              : "border-[#E2E8F0] bg-white"
+                          }`}
+                        >
+                          {t.status !== "active" && (
+                            <button
+                              type="button"
+                              onClick={() => updateStatus(t.id, "active")}
+                              className={`flex w-full items-center gap-2 px-3 py-2 text-xs ${
+                                dark ? "text-green-400 hover:bg-white/5" : "text-green-700 hover:bg-green-50"
+                              }`}
+                            >
+                              <CheckCircle size={14} />
+                              Activate
+                            </button>
+                          )}
+                          {t.status !== "suspended" && (
+                            <button
+                              type="button"
+                              onClick={() => updateStatus(t.id, "suspended")}
+                              className={`flex w-full items-center gap-2 px-3 py-2 text-xs ${
+                                dark ? "text-red-400 hover:bg-white/5" : "text-red-700 hover:bg-red-50"
+                              }`}
+                            >
+                              <Ban size={14} />
+                              Suspend
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
