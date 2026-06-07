@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
-import { Bell, ChevronDown, LogOut, Settings, Shield } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Settings, Shield } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 
@@ -9,10 +9,12 @@ export function DashboardHeader({
   title,
   subtitle,
   clock,
+  onMenuClick,
 }: {
   title: string;
   subtitle: string;
   clock: string;
+  onMenuClick?: () => void;
 }) {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -21,12 +23,24 @@ export function DashboardHeader({
   const isSuperAdmin = role === "super_admin";
 
   return (
-    <header className="relative z-20 flex shrink-0 items-center justify-between border-b border-[#E2E8F0]/80 bg-white/80 px-6 py-3 backdrop-blur-md">
-      <div>
-        <h1 className="text-[17px] font-semibold tracking-tight text-[#0F172A]">
-          {title}
-        </h1>
-        <p className="text-[12px] text-[#64748B]">{subtitle}</p>
+    <header className="relative z-20 flex shrink-0 items-center justify-between border-b border-[#E2E8F0]/80 bg-white/80 px-4 py-3 backdrop-blur-md sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        {onMenuClick && (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="shrink-0 rounded-xl p-2 text-[#64748B] transition hover:bg-[#F1F5F9] hover:text-[#0F172A] lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+        )}
+        <div className="min-w-0">
+          <h1 className="truncate text-[17px] font-semibold tracking-tight text-[#0F172A]">
+            {title}
+          </h1>
+          <p className="truncate text-[12px] text-[#64748B]">{subtitle}</p>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">

@@ -17,6 +17,7 @@ import {
   Server,
   Shield,
   Users,
+  X,
 } from "lucide-react";
 import { NavLink } from "@/components/shared/NavLink";
 import type { DashboardPageId } from "@/types";
@@ -55,6 +56,7 @@ interface SidebarProps {
   activePage: DashboardPageId;
   onNavigate: (page: DashboardPageId) => void;
   streamCount?: number;
+  onClose?: () => void;
 }
 
 function NavSection({ label }: { label: string }) {
@@ -65,26 +67,38 @@ function NavSection({ label }: { label: string }) {
   );
 }
 
-export function Sidebar({ activePage, onNavigate, streamCount = 0 }: SidebarProps) {
+export function Sidebar({ activePage, onNavigate, streamCount = 0, onClose }: SidebarProps) {
   const { data: session } = useSession();
   const streamNav = mainNav.map((item) =>
     item.id === "stream" ? { ...item, badge: streamCount } : item
   );
 
   return (
-    <aside className="flex w-[220px] shrink-0 flex-col border-r border-[#E2E8F0]/80 bg-white shadow-sm shadow-slate-200/30">
+    <aside className="flex h-full w-[min(280px,85vw)] shrink-0 flex-col border-r border-[#E2E8F0]/80 bg-white shadow-sm shadow-slate-200/30 lg:w-[220px]">
       {/* Brand */}
       <div className="border-b border-[#F1F5F9] px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1565C0] to-[#0D47A1] text-sm font-bold text-white shadow-md shadow-blue-600/30">
-            CL
-          </div>
-          <div>
-            <div className="text-[13px] font-semibold leading-tight text-[#0F172A]">
-              Cyber Link
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1565C0] to-[#0D47A1] text-sm font-bold text-white shadow-md shadow-blue-600/30">
+              CL
             </div>
-            <div className="text-[11px] text-[#94A3B8]">Communication</div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold leading-tight text-[#0F172A]">
+                Cyber Link
+              </div>
+              <div className="text-[11px] text-[#94A3B8]">Communication</div>
+            </div>
           </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-lg p-1.5 text-[#64748B] transition hover:bg-[#F1F5F9] hover:text-[#0F172A] lg:hidden"
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
       </div>
 
