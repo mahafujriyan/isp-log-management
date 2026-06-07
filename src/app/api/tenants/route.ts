@@ -1,5 +1,6 @@
 import { listTenants, createTenant } from "@/services/tenant.service";
 import { apiError, requirePermission } from "@/utils/api.utils";
+import { mapDatabaseError } from "@/utils/db-error.utils";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -10,11 +11,8 @@ export async function GET() {
     const tenants = await listTenants();
     return NextResponse.json(tenants);
   } catch (err) {
-    return apiError(
-      "Database error",
-      500,
-      err instanceof Error ? err.message : "Unknown"
-    );
+    const mapped = mapDatabaseError(err);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 }
 

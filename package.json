@@ -20,6 +20,7 @@
     "start:prod": "next start",
     "pm2:start": "pm2 start deploy/ecosystem.config.cjs",
     "db:init": "cd scripts && psql -U loguser -d isp_logserver -f init-db.sql",
+    "db:setup": "node scripts/setup-database.mjs",
     "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql",
     "db:phase8": "cd scripts && psql -U loguser -d isp_logserver -f phase8-migration.sql"
   },
