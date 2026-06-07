@@ -6,6 +6,8 @@ export type {
   Device,
   SyslogEntry,
   CreateTenantInput,
+  CreateDeviceInput,
+  IngestLogsInput,
 } from "@/types/entities.types";
 
 export type {

@@ -33,6 +33,10 @@ export const env = {
   cron: {
     secret: process.env.CRON_SECRET ?? "",
   },
+
+  ingest: {
+    secret: process.env.INGEST_SECRET ?? process.env.CRON_SECRET ?? "",
+  },
 } as const;
 
 export function requireEnv(key: keyof typeof env.database | "authSecret"): string {

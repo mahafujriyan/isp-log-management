@@ -22,10 +22,20 @@ export {
   listTenants,
   getTenantById,
   provisionTenantSchema,
+  updateTenantStatus,
 } from "@/services/tenant.service";
 export {
   getTenantSyslogs,
   getLogsAcrossTenants,
   resolveLogsQuery,
   countTenantSyslogs,
+  ingestLogs,
+  insertTenantSyslog,
 } from "@/services/syslog.service";
+export { getLiveDashboardMetrics } from "@/services/dashboard.service";
+export {
+  listTenantDevices,
+  createTenantDevice,
+  resolveDevicesQuery,
+} from "@/services/device.service";
+export { listUsers, getUserById } from "@/services/user.service";

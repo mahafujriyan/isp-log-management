@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { getComplianceStatus, getSubmissionHistory } from "@/services/btrc.service";
+import { requirePermission } from "@/utils/api.utils";
 
 export async function GET() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error } = await requirePermission("BTRC_MANAGE");
+  if (error) return error;
 
   const [status, submissions] = await Promise.all([
     getComplianceStatus(),

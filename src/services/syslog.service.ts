@@ -1,5 +1,5 @@
 import { db } from "@/lib/database";
-import type { LogEntry, SyslogEntry } from "@/types";
+import type { IngestLogsInput, LogEntry, SyslogEntry } from "@/types";
 import {
   getActiveTenantSchemas,
   getTenantById,
@@ -130,14 +130,14 @@ export async function resolveLogsQuery(params: {
 
   if (params.tenant_id) {
     const { logs, schema_name } = await getLogsForTenantId(params.tenant_id, options);
-    if (logs.length > 0) return { logs, source: "tenant", schema_name: schema_name ?? undefined };
+    if (schema_name) return { logs, source: "tenant", schema_name };
   }
 
   if (params.schema) {
     const tenant = await getTenantBySchema(params.schema);
     if (tenant) {
       const logs = await getTenantSyslogs(tenant.schema_name, options);
-      if (logs.length > 0) return { logs, source: "tenant", schema_name: tenant.schema_name };
+      return { logs, source: "tenant", schema_name: tenant.schema_name };
     }
   }
 
@@ -160,4 +160,44 @@ export async function countTenantSyslogs(schemaName: string): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+function normalizeIngestEntry(
+  raw: NonNullable<IngestLogsInput["logs"]>[number]
+): Omit<LogEntry, "id" | "time"> & { raw_message?: string } {
+  return {
+    pppoe_user: raw.pppoe_user ?? "",
+    mac: raw.mac ?? raw.mac_address ?? "",
+    user_ip: raw.user_ip ?? "",
+    nat_ip: raw.nat_ip ?? "",
+    visited_ip: raw.visited_ip ?? "",
+    port: raw.port ?? raw.visited_port ?? 0,
+    nat_port: raw.nat_port ?? raw.user_port,
+    protocol: raw.protocol,
+    raw_message: raw.raw_message,
+  };
+}
+
+export async function ingestLogs(input: IngestLogsInput): Promise<{
+  inserted: number;
+  schema_name: string;
+}> {
+  let schemaName = input.schema;
+
+  if (input.tenant_id) {
+    const tenant = await getTenantById(input.tenant_id);
+    if (!tenant) throw new Error("Tenant not found");
+    schemaName = tenant.schema_name;
+  }
+
+  if (!schemaName) throw new Error("tenant_id or schema is required");
+
+  const entries = input.logs ?? [];
+  if (entries.length === 0) throw new Error("At least one log entry is required");
+
+  for (const entry of entries) {
+    await insertTenantSyslog(schemaName, normalizeIngestEntry(entry));
+  }
+
+  return { inserted: entries.length, schema_name: schemaName };
 }

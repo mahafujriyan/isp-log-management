@@ -1,23 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { loadBtrcConfig, saveBtrcConfig } from "@/services/btrc.service";
+import { apiError, requirePermission } from "@/utils/api.utils";
 
 export async function GET() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error } = await requirePermission("BTRC_MANAGE");
+  if (error) return error;
 
   const config = await loadBtrcConfig();
   return NextResponse.json(config);
 }
 
 export async function PUT(request: Request) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const role = session.user?.role;
-  if (role !== "super_admin" && role !== "operator") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { error } = await requirePermission("BTRC_MANAGE");
+  if (error) return error;
 
   try {
     const body = await request.json();
@@ -33,6 +28,6 @@ export async function PUT(request: Request) {
     });
     return NextResponse.json(saved);
   } catch {
-    return NextResponse.json({ error: "Failed to save config" }, { status: 400 });
+    return apiError("Failed to save config", 400);
   }
 }

@@ -20,3 +20,20 @@ export {
   assertValidTenantSchema,
   buildTenantSchemaName,
 } from "@/utils/schema.utils";
+
+export {
+  apiError,
+  parsePositiveInt,
+  requireSessionRoles,
+  requirePermission,
+  canIngestLogs,
+} from "@/utils/api.utils";
+
+export {
+  hasRole,
+  hasPermission,
+  isRoleAtLeast,
+  canAccessAdminPanel,
+  canManageTenants,
+  isAppRole,
+} from "@/utils/rbac.utils";

@@ -1,25 +1,26 @@
-import { auth } from "@/auth";
-import { createTenant, listTenants } from "@/services/tenant.service";
+import { listTenants, createTenant } from "@/services/tenant.service";
+import { apiError, requirePermission } from "@/utils/api.utils";
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  const { error } = await requirePermission("TENANT_READ");
+  if (error) return error;
+
   try {
     const tenants = await listTenants();
     return NextResponse.json(tenants);
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch tenants", detail: error instanceof Error ? error.message : "Unknown" },
-      { status: 500 }
+  } catch (err) {
+    return apiError(
+      "Database error",
+      500,
+      err instanceof Error ? err.message : "Unknown"
     );
   }
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const role = session?.user?.role;
-  if (!session || (role !== "super_admin" && role !== "operator")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { error } = await requirePermission("TENANT_CREATE");
+  if (error) return error;
 
   try {
     const body = await request.json();
@@ -38,9 +39,10 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    return NextResponse.json(
-      { error: "Creation failed", detail: error instanceof Error ? error.message : "Unknown" },
-      { status: 400 }
+    return apiError(
+      "Creation failed",
+      400,
+      error instanceof Error ? error.message : "Unknown"
     );
   }
 }

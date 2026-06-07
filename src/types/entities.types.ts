@@ -81,3 +81,26 @@ export interface CreateTenantInput {
   plan_id: number;
   expires_in_days?: number;
 }
+
+export interface CreateDeviceInput {
+  name: string;
+  device_ip: string;
+  config_type?: "NAT" | "ACCESS";
+  nat_ip?: string;
+  syslog_user?: string;
+  syslog_port?: number;
+  listen_port?: number;
+}
+
+export interface IngestLogsInput {
+  tenant_id?: number;
+  schema?: string;
+  logs?: Array<
+    Partial<LogEntry> & {
+      raw_message?: string;
+      mac_address?: string;
+      user_port?: number;
+      visited_port?: number;
+    }
+  >;
+}

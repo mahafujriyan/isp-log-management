@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { submitBtrcBatch } from "@/services/btrc.service";
+import { apiError, requirePermission } from "@/utils/api.utils";
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const role = session.user?.role;
-  if (role !== "super_admin" && role !== "operator") {
-    return NextResponse.json({ error: "Forbidden — operator or super admin required" }, { status: 403 });
-  }
+  const { session, error } = await requirePermission("BTRC_MANAGE");
+  if (error) return error;
 
   try {
     const body = await request.json().catch(() => ({}));
@@ -21,7 +16,7 @@ export async function POST(request: Request) {
       from,
       to,
       limit,
-      session.user?.email ?? session.user?.name ?? "operator"
+      session?.user?.email ?? session?.user?.name ?? "operator"
     );
 
     return NextResponse.json({
@@ -33,10 +28,11 @@ export async function POST(request: Request) {
       status: submission.status,
       submitted_at: submission.submitted_at,
     });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Submission failed", detail: error instanceof Error ? error.message : "Unknown" },
-      { status: 500 }
+  } catch (err) {
+    return apiError(
+      "Submission failed",
+      500,
+      err instanceof Error ? err.message : "Unknown"
     );
   }
 }

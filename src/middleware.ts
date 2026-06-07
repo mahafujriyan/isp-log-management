@@ -1,4 +1,5 @@
 import { ROUTES } from "@/constants/routes.constants";
+import { ROLES } from "@/constants/roles.constants";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
@@ -21,13 +22,13 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname.startsWith(ROUTES.admin) && isLoggedIn && role !== "super_admin") {
+  if (pathname.startsWith(ROUTES.admin) && isLoggedIn && role !== ROLES.SUPER_ADMIN) {
     return NextResponse.redirect(new URL(ROUTES.dashboard, req.url));
   }
 
   if (isAuthPage && isLoggedIn) {
     const target =
-      role === "super_admin" && pathname.startsWith(ROUTES.auth.superAdmin)
+      role === ROLES.SUPER_ADMIN && pathname.startsWith(ROUTES.auth.superAdmin)
         ? ROUTES.admin
         : ROUTES.dashboard;
     return NextResponse.redirect(new URL(target, req.url));
@@ -35,7 +36,7 @@ export default auth((req) => {
 
   if (pathname === ROUTES.home && isLoggedIn) {
     return NextResponse.redirect(
-      new URL(role === "super_admin" ? ROUTES.admin : ROUTES.dashboard, req.url)
+      new URL(role === ROLES.SUPER_ADMIN ? ROUTES.admin : ROUTES.dashboard, req.url)
     );
   }
 

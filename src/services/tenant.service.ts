@@ -75,6 +75,16 @@ export async function getActiveTenantSchemas(): Promise<string[]> {
   return rows.map((r) => r.schema_name).filter((n) => isValidTenantSchemaName(n) && !n.includes("pending"));
 }
 
+export async function updateTenantStatus(id: number, status: string): Promise<Tenant | null> {
+  const allowed = ["active", "suspended", "expired"];
+  if (!allowed.includes(status)) throw new Error("Invalid status");
+
+  return db.getOne<Tenant>(
+    `UPDATE public.tenants SET status = $1 WHERE id = $2 RETURNING *`,
+    [status, id]
+  );
+}
+
 export function syslogToLogEntry(row: SyslogEntry): LogEntry {
   return {
     id: row.id,
