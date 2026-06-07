@@ -39,3 +39,9 @@ export {
   resolveDevicesQuery,
 } from "@/services/device.service";
 export { listUsers, getUserById } from "@/services/user.service";
+export {
+  getVisibleMetricsWithData,
+  listAdminMetrics,
+  toggleMetricVisibility,
+  recordMetricsFromLogs,
+} from "@/services/metrics.service";

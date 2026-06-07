@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnalyticsPage } from "@/components/dashboard/AnalyticsPage";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { LogsTable } from "@/components/dashboard/LogsTable";
@@ -244,6 +245,8 @@ export function DashboardApp() {
           )}
 
           {page === "btrc" && <BtrcPanel />}
+
+          {page === "analytics" && <AnalyticsPage />}
 
           {(page === "usermgr" || page === "rolemgr" || page === "servermgr" || page === "menumgr" || page === "serviceinfo" || page === "company" || page === "faq") && (
             <AdminPages page={page} openFaq={openFaq} setOpenFaq={setOpenFaq} today={today} />

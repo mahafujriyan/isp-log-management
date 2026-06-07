@@ -19,4 +19,5 @@ export type DashboardPageId =
   | "serviceinfo"
   | "company"
   | "btrc"
+  | "analytics"
   | "faq";

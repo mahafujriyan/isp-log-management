@@ -4,6 +4,8 @@ export { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 export { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 export { MetricCard, ChartCard, PanelCard } from "@/components/dashboard/MetricCard";
 export { LogsTable } from "@/components/dashboard/LogsTable";
+export { DynamicChart } from "@/components/dashboard/DynamicChart";
+export { AnalyticsPage } from "@/components/dashboard/AnalyticsPage";
 export {
   DiskChart,
   HourlyLogsChart,

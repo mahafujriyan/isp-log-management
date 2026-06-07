@@ -3,6 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import {
   Activity,
+  BarChart3,
   Building2,
   Cpu,
   FileCheck,
@@ -29,6 +30,7 @@ interface NavItem {
 
 const mainNav: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} strokeWidth={2} /> },
+  { id: "analytics", label: "Analytics", icon: <BarChart3 size={16} strokeWidth={2} /> },
   { id: "stream", label: "Log Stream", icon: <Activity size={16} strokeWidth={2} /> },
   { id: "devices", label: "Devices", icon: <Router size={16} strokeWidth={2} /> },
   { id: "search", label: "Search Log", icon: <Search size={16} strokeWidth={2} /> },

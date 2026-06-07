@@ -121,3 +121,6 @@ SELECT * FROM (VALUES
   ('shohid', 'D8:32:14:9C:13:B0', '10.56.10.200'::inet, 60102, '160.187.175.138'::inet, 53, '8.8.8.8'::inet, 53, 'UDP', 'US', NULL)
 ) AS v(pppoe_user, mac_address, user_ip, user_port, nat_ip, nat_port, visited_ip, visited_port, protocol, country_code, city)
 WHERE NOT EXISTS (SELECT 1 FROM tenant_001.syslogs LIMIT 1);
+
+-- PHASE 8: MikroTik metrics & dynamic charts
+\i phase8-migration.sql

@@ -12,6 +12,7 @@ export const PAGE_TITLES: Record<DashboardPageId, { title: string; sub: string }
   menumgr: { title: "Menu Manager", sub: "Customize sidebar navigation" },
   serviceinfo: { title: "Service Info", sub: "Service health & system stats" },
   btrc: { title: "BTRC Compliance", sub: "Export & submit NAT logs to BTRC" },
+  analytics: { title: "Analytics", sub: "MikroTik metrics — dynamic charts per configuration" },
   company: { title: "Company Settings", sub: "Organization configuration" },
   faq: { title: "FAQ", sub: "Help & documentation" },
 };

@@ -10,6 +10,7 @@ export const ROUTES = {
     health: "/api/health",
     tenants: "/api/tenants",
     logs: "/api/logs",
+    mikrotikMetrics: "/api/metrics",
     devices: "/api/devices",
     plans: "/api/plans",
     users: "/api/users",

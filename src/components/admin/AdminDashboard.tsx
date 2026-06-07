@@ -50,6 +50,15 @@ export function AdminDashboard() {
       {!loading && <AdminStats tenants={tenants} userCount={userCount} />}
       {!loading && plans.length > 0 && <PlansOverview plans={plans} />}
       <TenantManager variant="dark" onTenantsChange={setTenants} />
+
+      <div className="mt-8 text-center">
+        <a
+          href="/admin/metrics"
+          className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-300 hover:bg-amber-500/20"
+        >
+          Configure Analytics Charts →
+        </a>
+      </div>
     </AdminLayout>
   );
 }

@@ -199,5 +199,14 @@ export async function ingestLogs(input: IngestLogsInput): Promise<{
     await insertTenantSyslog(schemaName, normalizeIngestEntry(entry));
   }
 
+  if (input.tenant_id) {
+    const { recordMetricsFromLogs } = await import("@/services/metrics.service");
+    const logEntries = entries.map((e) => ({
+      ...normalizeIngestEntry(e),
+      time: new Date().toISOString(),
+    }));
+    await recordMetricsFromLogs(input.tenant_id, logEntries).catch(() => {});
+  }
+
   return { inserted: entries.length, schema_name: schemaName };
 }
