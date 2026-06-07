@@ -1,6 +1,6 @@
 import { ROUTES } from "@/constants/routes.constants";
 import { ROLES } from "@/constants/roles.constants";
-import { auth } from "@/auth";
+import { auth } from "@/auth.edge";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
