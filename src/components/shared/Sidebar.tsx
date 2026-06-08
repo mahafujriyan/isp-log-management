@@ -1,6 +1,7 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -69,9 +70,27 @@ function NavSection({ label }: { label: string }) {
 
 export function Sidebar({ activePage, onNavigate, streamCount = 0, onClose }: SidebarProps) {
   const { data: session } = useSession();
-  const streamNav = mainNav.map((item) =>
-    item.id === "stream" ? { ...item, badge: streamCount } : item
+  const [allowedPages, setAllowedPages] = useState<Set<DashboardPageId> | null>(null);
+
+  useEffect(() => {
+    fetch("/api/menus?forRole=current")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setAllowedPages(new Set(data.map((row: { page_id: DashboardPageId }) => row.page_id)));
+        }
+      })
+      .catch(() => {});
+  }, [session?.user?.role]);
+
+  const filterNav = (items: NavItem[]) =>
+    allowedPages ? items.filter((item) => allowedPages.has(item.id)) : items;
+
+  const streamNav = filterNav(
+    mainNav.map((item) => (item.id === "stream" ? { ...item, badge: streamCount } : item))
   );
+  const visibleAdminNav = filterNav(adminNav);
+  const visibleSystemNav = filterNav(systemNav);
 
   return (
     <aside className="flex h-full w-[min(280px,85vw)] shrink-0 flex-col border-r border-[#E2E8F0]/80 bg-white shadow-sm shadow-slate-200/30 lg:w-[220px]">
@@ -115,27 +134,35 @@ export function Sidebar({ activePage, onNavigate, streamCount = 0, onClose }: Si
           />
         ))}
 
-        <NavSection label="Admin" />
-        {adminNav.map((item) => (
-          <NavLink
-            key={item.id}
-            label={item.label}
-            icon={item.icon}
-            active={activePage === item.id}
-            onClick={() => onNavigate(item.id)}
-          />
-        ))}
+        {visibleAdminNav.length > 0 && (
+          <>
+            <NavSection label="Admin" />
+            {visibleAdminNav.map((item) => (
+              <NavLink
+                key={item.id}
+                label={item.label}
+                icon={item.icon}
+                active={activePage === item.id}
+                onClick={() => onNavigate(item.id)}
+              />
+            ))}
+          </>
+        )}
 
-        <NavSection label="System" />
-        {systemNav.map((item) => (
-          <NavLink
-            key={item.id}
-            label={item.label}
-            icon={item.icon}
-            active={activePage === item.id}
-            onClick={() => onNavigate(item.id)}
-          />
-        ))}
+        {visibleSystemNav.length > 0 && (
+          <>
+            <NavSection label="System" />
+            {visibleSystemNav.map((item) => (
+              <NavLink
+                key={item.id}
+                label={item.label}
+                icon={item.icon}
+                active={activePage === item.id}
+                onClick={() => onNavigate(item.id)}
+              />
+            ))}
+          </>
+        )}
       </div>
 
       {/* Footer user + logout */}

@@ -124,3 +124,6 @@ WHERE NOT EXISTS (SELECT 1 FROM tenant_001.syslogs LIMIT 1);
 
 -- PHASE 8: MikroTik metrics & dynamic charts
 \i phase8-migration.sql
+
+-- Menu manager: sidebar items + role permissions
+\i menu-migration.sql

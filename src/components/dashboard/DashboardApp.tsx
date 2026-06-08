@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnalyticsPage } from "@/components/dashboard/AnalyticsPage";
+import { MenuManagerPanel } from "@/components/dashboard/MenuManagerPanel";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { LogsTable } from "@/components/dashboard/LogsTable";
@@ -21,7 +22,6 @@ import {
   ChevronDown,
   Download,
   Edit,
-  GripVertical,
   Key,
   Plus,
   RefreshCw,
@@ -467,22 +467,7 @@ function AdminPages({
   }
 
   if (page === "menumgr") {
-    const items = ["Dashboard", "Log Stream", "Devices", "Search Log", "User Manager", "Service Info"];
-    return (
-      <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
-        <div className="mb-3 text-[12px] font-medium text-[#64748B]">Sidebar menu items — drag to reorder</div>
-        {items.map((item) => (
-          <div key={item} className="flex items-center gap-2.5 border-b border-[#E2E8F0] py-2 last:border-0">
-            <GripVertical size={18} className="cursor-grab text-[#94A3B8]" />
-            <span className="flex-1 text-[13px]">{item}</span>
-            <Tag variant="ok">Visible</Tag>
-          </div>
-        ))}
-        <button type="button" className="mt-3 flex items-center gap-1 rounded-md bg-[#1976D2] px-3.5 py-1.5 text-[12px] font-medium text-white">
-          <Save size={13} /> Save menu order
-        </button>
-      </div>
-    );
+    return <MenuManagerPanel />;
   }
 
   if (page === "rolemgr") {
