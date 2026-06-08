@@ -130,3 +130,6 @@ WHERE NOT EXISTS (SELECT 1 FROM tenant_001.syslogs LIMIT 1);
 
 -- Company settings + demo devices
 \i company-migration.sql
+
+-- Marketing demo / sales inquiries
+\i demo-request-migration.sql
