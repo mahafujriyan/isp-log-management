@@ -47,10 +47,22 @@ export function AdminDashboard({ embedded = false }: { embedded?: boolean }) {
       {!loading && plans.length > 0 && <PlansOverview plans={plans} />}
       <TenantManager variant="dark" onTenantsChange={setTenants} />
       {!embedded && (
-        <div className="mt-8 text-center">
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <a
+            href="/admin/demo-requests"
+            className="inline-flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-xs font-medium text-blue-300 hover:bg-blue-500/20"
+          >
+            Demo Requests →
+          </a>
+          <a
+            href="/admin/billing"
+            className="inline-flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-xs font-medium text-blue-300 hover:bg-blue-500/20"
+          >
+            Manage Pricing →
+          </a>
           <a
             href="/admin/metrics"
-            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-300 hover:bg-amber-500/20"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-white/10"
           >
             Configure Analytics Charts →
           </a>

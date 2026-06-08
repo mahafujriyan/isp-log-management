@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { apiError, canIngestLogs, parsePositiveInt, requirePermission } from "@/utils/api.utils";
+import { apiError, canIngestLogs, parsePositiveInt, requirePermission, resolveTenantScope } from "@/utils/api.utils";
 import { ingestLogs, resolveLogsQuery } from "@/services/syslog.service";
 import type { IngestLogsInput } from "@/types";
 
@@ -15,12 +15,15 @@ export async function GET(request: Request) {
   const to = searchParams.get("to") ?? undefined;
   const schema = searchParams.get("schema") ?? undefined;
   const tenantIdParam = searchParams.get("tenant_id") ?? searchParams.get("tenantId");
-  const tenant_id = tenantIdParam ? Number(tenantIdParam) : undefined;
-  const format = searchParams.get("format");
+  const requested = tenantIdParam ? Number(tenantIdParam) : undefined;
+  const scope = await resolveTenantScope(
+    requested && !Number.isNaN(requested) ? requested : undefined
+  );
+  if (scope.error) return scope.error;
 
   try {
     const { logs, source, schema_name } = await resolveLogsQuery({
-      tenant_id: tenant_id && !Number.isNaN(tenant_id) ? tenant_id : undefined,
+      tenant_id: scope.tenant_id,
       schema,
       limit,
       from,
@@ -29,6 +32,7 @@ export async function GET(request: Request) {
       mac,
     });
 
+    const format = searchParams.get("format");
     if (format === "raw") {
       return NextResponse.json(logs);
     }

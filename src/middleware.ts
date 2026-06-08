@@ -1,6 +1,6 @@
 import { PORTAL_ROUTES } from "@/constants/portal.constants";
 import { ROUTES } from "@/constants/routes.constants";
-import { ROLES } from "@/constants/roles.constants";
+import { ROLES, DEMO_BLOCKED_OPERATOR_PATHS } from "@/constants/roles.constants";
 import { auth } from "@/auth.edge";
 import { NextResponse } from "next/server";
 
@@ -33,6 +33,15 @@ export default auth((req) => {
     }
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (role === ROLES.DEMO) {
+    if (isAdminPortal || isLegacyDashboard) {
+      return NextResponse.redirect(new URL(PORTAL_ROUTES.operator.home, req.url));
+    }
+    if (DEMO_BLOCKED_OPERATOR_PATHS.some((p) => pathname.startsWith(p))) {
+      return NextResponse.redirect(new URL(PORTAL_ROUTES.operator.home, req.url));
+    }
   }
 
   if (isAdminPortal && isLoggedIn && role !== ROLES.SUPER_ADMIN) {

@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { env } from "@/config/env.config";
-import { PERMISSIONS, type Permission } from "@/constants/roles.constants";
+import { PERMISSIONS, ROLES, type Permission } from "@/constants/roles.constants";
 import { hasRole } from "@/utils/rbac.utils";
+import { NextResponse } from "next/server";
 
 export function apiError(message: string, status = 500, detail?: string) {
   return NextResponse.json(
@@ -44,4 +44,29 @@ export async function canIngestLogs(request: Request) {
   }
 
   return { allowed: false as const, session: null };
+}
+
+/** Demo users are locked to their sandbox tenant; production users may pass tenant_id. */
+export async function resolveTenantScope(requested?: number): Promise<{
+  tenant_id: number | undefined;
+  error?: NextResponse;
+}> {
+  const session = await auth();
+  const role = session?.user?.role;
+  const sessionTenantId = session?.user?.tenantId;
+
+  if (role === ROLES.DEMO) {
+    if (!sessionTenantId) {
+      return { tenant_id: undefined, error: apiError("Demo account misconfigured", 403) };
+    }
+    if (requested && requested !== sessionTenantId) {
+      return {
+        tenant_id: undefined,
+        error: apiError("Forbidden — demo accounts cannot access production data", 403),
+      };
+    }
+    return { tenant_id: sessionTenantId };
+  }
+
+  return { tenant_id: requested };
 }

@@ -1,6 +1,6 @@
 import { createTenantDevice, resolveDevicesQuery } from "@/services/device.service";
 import { getTenantById } from "@/services/tenant.service";
-import { apiError, requirePermission } from "@/utils/api.utils";
+import { apiError, requirePermission, resolveTenantScope } from "@/utils/api.utils";
 import { mapDatabaseError } from "@/utils/db-error.utils";
 import { NextResponse } from "next/server";
 
@@ -10,13 +10,18 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const tenantIdParam = searchParams.get("tenant_id") ?? searchParams.get("tenantId");
-  const tenant_id = tenantIdParam ? Number(tenantIdParam) : undefined;
+  const requested = tenantIdParam ? Number(tenantIdParam) : undefined;
+  const scope = await resolveTenantScope(
+    requested && !Number.isNaN(requested) ? requested : undefined
+  );
+  if (scope.error) return scope.error;
+
   const schema = searchParams.get("schema") ?? undefined;
   const disabled = searchParams.get("disabled") === "true";
 
   try {
     const { devices, schema_name, source } = await resolveDevicesQuery({
-      tenant_id: tenant_id && !Number.isNaN(tenant_id) ? tenant_id : undefined,
+      tenant_id: scope.tenant_id,
       schema,
       disabled,
     });

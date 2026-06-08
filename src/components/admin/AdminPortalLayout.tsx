@@ -10,6 +10,7 @@ import {
   BarChart3,
   CreditCard,
   Crown,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -24,6 +25,7 @@ const ICONS = {
   "bar-chart-3": BarChart3,
   users: Users,
   "credit-card": CreditCard,
+  inbox: Inbox,
   settings: Settings,
 } as const;
 

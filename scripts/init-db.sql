@@ -133,3 +133,9 @@ WHERE NOT EXISTS (SELECT 1 FROM tenant_001.syslogs LIMIT 1);
 
 -- Marketing demo / sales inquiries
 \i demo-request-migration.sql
+
+-- Featured plan flag for marketing pricing
+\i plans-featured-migration.sql
+
+-- Demo sandbox + time-limited demo accounts
+\i demo-provisioning-migration.sql

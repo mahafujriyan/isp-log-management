@@ -11,7 +11,7 @@ interface LogStreamPanelProps {
 }
 
 export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
-  const { tenantId, tenants, setTenantId } = useTenantContext();
+  const { tenantId, tenants, setTenantId, isDemo } = useTenantContext();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("");
@@ -62,7 +62,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
       <div className="mb-2.5 flex flex-wrap items-center gap-2">
-        {tenants.length > 1 && (
+        {tenants.length > 1 && !isDemo && (
           <select
             value={tenantId}
             onChange={(e) => setTenantId(Number(e.target.value))}

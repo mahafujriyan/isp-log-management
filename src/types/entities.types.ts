@@ -6,6 +6,7 @@ export interface Plan {
   retention_days: number;
   max_logs_per_day: number;
   price_bdt: number;
+  is_featured?: boolean;
   created_at?: string;
 }
 
@@ -20,15 +21,18 @@ export interface Tenant {
   activated_at: string;
   expires_at: string;
   created_at: string;
+  is_demo_sandbox?: boolean;
 }
 
 export interface User {
   id: number;
-  tenant_id: number;
+  tenant_id: number | null;
   username: string;
   email: string;
   role: string;
   is_active: boolean;
+  account_type?: string;
+  demo_expires_at?: string | null;
   created_at: string;
 }
 

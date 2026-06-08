@@ -1,5 +1,6 @@
 import { AUTH_CONFIG } from "@/config/auth.config";
 import { db } from "@/lib/database";
+import { deactivateDemoUser } from "@/services/demo-user.service";
 import type { AuthPortal, AuthUser } from "@/types/auth.types";
 
 export async function authenticateUser(
@@ -16,8 +17,13 @@ export async function authenticateUser(
       username: string;
       password_hash: string;
       role: string;
+      tenant_id: number | null;
+      account_type: string | null;
+      demo_expires_at: string | null;
     }>(
-      "SELECT id, email, username, password_hash, role FROM public.users WHERE LOWER(email) = $1 AND is_active = true",
+      `SELECT id, email, username, password_hash, role, tenant_id, account_type, demo_expires_at
+       FROM public.users
+       WHERE LOWER(email) = $1 AND is_active = TRUE`,
       [normalizedEmail]
     );
 
@@ -25,13 +31,26 @@ export async function authenticateUser(
       const bcrypt = await import("bcryptjs");
       const valid = await bcrypt.compare(password, user.password_hash);
       if (!valid) return null;
+
+      if (user.account_type === "demo" && user.demo_expires_at) {
+        if (new Date(user.demo_expires_at) <= new Date()) {
+          await deactivateDemoUser(user.id);
+          return null;
+        }
+      }
+
       if (portal === "super_admin" && user.role !== "super_admin") return null;
       if (portal === "user" && user.role === "super_admin") return null;
+      if (portal === "user" && user.account_type === "demo" && user.role !== "demo") return null;
+
       return {
         id: String(user.id),
         email: user.email,
         name: user.username,
         role: user.role,
+        tenant_id: user.tenant_id,
+        account_type: user.account_type ?? "standard",
+        demo_expires_at: user.demo_expires_at,
       };
     }
   } catch {

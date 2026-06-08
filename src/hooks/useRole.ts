@@ -17,5 +17,8 @@ export function useRole() {
     can: (permission: Permission) => hasPermission(role, permission),
     isAtLeast: (minimum: AppRole) => isRoleAtLeast(role, minimum),
     isSuperAdmin: role === "super_admin",
+    isDemo: role === "demo" || session?.user?.accountType === "demo",
+    tenantId: session?.user?.tenantId,
+    demoExpiresAt: session?.user?.demoExpiresAt,
   };
 }

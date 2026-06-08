@@ -77,10 +77,10 @@ const FAQS = [
 ];
 
 const FALLBACK_PLANS = [
-  { name: "Starter",    price_bdt: 2000,  max_users: 5,   max_devices: 2,   highlight: false },
-  { name: "Pro",        price_bdt: 6000,  max_users: 20,  max_devices: 10,  highlight: true  },
-  { name: "Business",   price_bdt: 15000, max_users: 100, max_devices: 50,  highlight: false },
-  { name: "Enterprise", price_bdt: 0,     max_users: 999, max_devices: 999, highlight: false },
+  { name: "Starter",    price_bdt: 2000,  max_users: 5,   max_devices: 2,   highlight: false, is_featured: false },
+  { name: "Pro",        price_bdt: 6000,  max_users: 20,  max_devices: 10,  highlight: true,  is_featured: true  },
+  { name: "Business",   price_bdt: 15000, max_users: 100, max_devices: 50,  highlight: false, is_featured: false },
+  { name: "Enterprise", price_bdt: 0,     max_users: 999, max_devices: 999, highlight: false, is_featured: false },
 ];
 
 const MOCK_LOGS = [
@@ -321,7 +321,7 @@ export function LandingPage() {
   }
 
   const pricing = plans.length
-    ? plans.slice(0, 4).map((p, i) => ({ ...p, highlight: i === 1 }))
+    ? plans.slice(0, 4).map((p) => ({ ...p, highlight: Boolean(p.is_featured) }))
     : FALLBACK_PLANS;
   const cur = SHOWCASE_SLIDES[slide];
 
