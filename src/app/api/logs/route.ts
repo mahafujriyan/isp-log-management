@@ -10,6 +10,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const limit = parsePositiveInt(searchParams.get("limit"), 100, 500);
   const user = searchParams.get("user") ?? undefined;
+  const mac = searchParams.get("mac") ?? undefined;
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   const schema = searchParams.get("schema") ?? undefined;
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
       from,
       to,
       user,
+      mac,
     });
 
     if (format === "raw") {

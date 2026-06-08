@@ -8,7 +8,7 @@ import { PlansOverview } from "@/components/admin/PlansOverview";
 import { TenantManager } from "@/components/admin/TenantManager";
 import { useRole } from "@/hooks/useRole";
 
-export function AdminDashboard() {
+export function AdminDashboard({ embedded = false }: { embedded?: boolean }) {
   const { session } = useRole();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -41,24 +41,45 @@ export function AdminDashboard() {
     loadData();
   }, [loadData]);
 
+  const body = (
+    <>
+      {!loading && <AdminStats tenants={tenants} userCount={userCount} />}
+      {!loading && plans.length > 0 && <PlansOverview plans={plans} />}
+      <TenantManager variant="dark" onTenantsChange={setTenants} />
+      {!embedded && (
+        <div className="mt-8 text-center">
+          <a
+            href="/admin/metrics"
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-300 hover:bg-amber-500/20"
+          >
+            Configure Analytics Charts →
+          </a>
+        </div>
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white">
+            Welcome, {session?.user?.username ?? session?.user?.name ?? "Admin"}
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">System-wide tenant management and platform configuration</p>
+        </div>
+        {body}
+      </>
+    );
+  }
+
   return (
     <AdminLayout
       title="Super Admin Panel"
       subtitle="System-wide tenant management and platform configuration"
       userName={session?.user?.username ?? session?.user?.name ?? undefined}
     >
-      {!loading && <AdminStats tenants={tenants} userCount={userCount} />}
-      {!loading && plans.length > 0 && <PlansOverview plans={plans} />}
-      <TenantManager variant="dark" onTenantsChange={setTenants} />
-
-      <div className="mt-8 text-center">
-        <a
-          href="/admin/metrics"
-          className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-300 hover:bg-amber-500/20"
-        >
-          Configure Analytics Charts →
-        </a>
-      </div>
+      {body}
     </AdminLayout>
   );
 }

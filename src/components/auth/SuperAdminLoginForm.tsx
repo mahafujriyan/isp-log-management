@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import {
   AuthError,
   AuthField,
-  AuthPortalLink,
   AuthShell,
   AuthSubmit,
 } from "@/components/auth/AuthShell";
@@ -66,14 +65,9 @@ export function SuperAdminLoginForm() {
       title="Super Admin Access"
       subtitle="Enhanced security verification required"
       footer={
-        <>
-          Regular user?{" "}
-          <AuthPortalLink
-            href="/auth/login"
-            label="← Back to standard login"
-            dark
-          />
-        </>
+        <span className="text-[11px] text-slate-500">
+          Contact platform owner if you need access credentials.
+        </span>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">

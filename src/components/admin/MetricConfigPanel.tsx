@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { AdminMetricRow } from "@/types/metrics.types";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminPageHeader } from "@/components/admin/AdminPortalLayout";
 import { useRole } from "@/hooks/useRole";
 import { BarChart3, Eye, EyeOff, LayoutDashboard } from "lucide-react";
 
-export function MetricConfigPanel() {
+export function MetricConfigPanel({ embedded = false }: { embedded?: boolean }) {
   const { session } = useRole();
   const [metrics, setMetrics] = useState<AdminMetricRow[]>([]);
   const [tenantId, setTenantId] = useState(1);
@@ -47,21 +48,19 @@ export function MetricConfigPanel() {
     await loadMetrics();
   }
 
-  return (
-    <AdminLayout
-      title="Metric Configuration"
-      subtitle="Control which MikroTik analytics appear on each tenant dashboard"
-      userName={session?.user?.username ?? session?.user?.name ?? undefined}
-    >
+  const content = (
+    <>
       <div className="mb-6 flex flex-wrap items-center gap-3">
+        {!embedded && (
+          <Link
+            href="/admin"
+            className="rounded-xl border border-white/10 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-white/5"
+          >
+            ← Tenants
+          </Link>
+        )}
         <Link
-          href="/admin"
-          className="rounded-xl border border-white/10 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-white/5"
-        >
-          ← Tenants
-        </Link>
-        <Link
-          href="/dashboard"
+          href="/operator/reports"
           className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-300"
         >
           <LayoutDashboard size={14} />
@@ -124,6 +123,28 @@ export function MetricConfigPanel() {
           </div>
         ))}
       </div>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <>
+        <AdminPageHeader
+          title="Metric Configuration"
+          subtitle="Control which MikroTik analytics appear on each tenant dashboard"
+        />
+        {content}
+      </>
+    );
+  }
+
+  return (
+    <AdminLayout
+      title="Metric Configuration"
+      subtitle="Control which MikroTik analytics appear on each tenant dashboard"
+      userName={session?.user?.username ?? session?.user?.name ?? undefined}
+    >
+      {content}
     </AdminLayout>
   );
 }

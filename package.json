@@ -16,6 +16,7 @@
     "verify:phase6": "node scripts/verify-phase6.mjs",
     "verify:phase7": "node scripts/verify-phase7.mjs",
     "verify:phase8": "node scripts/verify-phase8.mjs",
+    "verify:phase9": "node scripts/verify-phase9.mjs",
     "verify:all": "node scripts/verify-phase1.mjs && node scripts/verify-phase2.mjs && node scripts/verify-phase3.mjs && node scripts/verify-phase4.mjs && node scripts/verify-phase5.mjs && node scripts/verify-phase6.mjs && node scripts/verify-phase7.mjs",
     "start:prod": "next start",
     "pm2:start": "pm2 start deploy/ecosystem.config.cjs",
@@ -25,9 +26,13 @@
     "db:phase8": "cd scripts && psql -U loguser -d isp_logserver -f phase8-migration.sql"
   },
   "dependencies": {
+    "aos": "^2.3.4",
     "axios": "^1.17.0",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",
+    "embla-carousel-autoplay": "^8.6.0",
+    "embla-carousel-react": "^8.6.0",
+    "framer-motion": "^12.40.0",
     "lucide-react": "^1.17.0",
     "next": "16.2.7",
     "next-auth": "^5.0.0-beta.31",
@@ -39,6 +44,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/aos": "^3.0.8",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",

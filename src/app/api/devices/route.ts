@@ -1,6 +1,7 @@
 import { createTenantDevice, resolveDevicesQuery } from "@/services/device.service";
 import { getTenantById } from "@/services/tenant.service";
 import { apiError, requirePermission } from "@/utils/api.utils";
+import { mapDatabaseError } from "@/utils/db-error.utils";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -11,20 +12,19 @@ export async function GET(request: Request) {
   const tenantIdParam = searchParams.get("tenant_id") ?? searchParams.get("tenantId");
   const tenant_id = tenantIdParam ? Number(tenantIdParam) : undefined;
   const schema = searchParams.get("schema") ?? undefined;
+  const disabled = searchParams.get("disabled") === "true";
 
   try {
     const { devices, schema_name, source } = await resolveDevicesQuery({
       tenant_id: tenant_id && !Number.isNaN(tenant_id) ? tenant_id : undefined,
       schema,
+      disabled,
     });
 
     return NextResponse.json({ devices, count: devices.length, source, schema_name });
-  } catch (error) {
-    return apiError(
-      "Failed to fetch devices",
-      500,
-      error instanceof Error ? error.message : "Unknown"
-    );
+  } catch (err) {
+    const mapped = mapDatabaseError(err);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 }
 

@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import {
   AuthError,
   AuthField,
-  AuthPortalLink,
   AuthShell,
   AuthSubmit,
 } from "@/components/auth/AuthShell";
@@ -14,7 +13,7 @@ import { LockKeyhole } from "lucide-react";
 
 export function UserLoginForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/operator";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,13 +46,12 @@ export function UserLoginForm() {
   return (
     <AuthShell
       variant="user"
-      title="Sign in"
-      subtitle="Access your ISP log dashboard"
+      title="Operator Sign In"
+      subtitle="Authorized operator access only — not linked from the public website"
       footer={
-        <>
-          Super Admin?{" "}
-          <AuthPortalLink href="/auth/super-admin" label="Use secure admin portal →" />
-        </>
+        <span className="text-[11px] text-[#94A3B8]">
+          Contact your administrator if you need access credentials.
+        </span>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -74,7 +72,7 @@ export function UserLoginForm() {
           placeholder="••••••••••"
         />
 
-        <AuthSubmit loading={loading} label="Sign in to Dashboard" />
+        <AuthSubmit loading={loading} label="Sign in to Operator Portal" />
 
         <div className="rounded-xl bg-[#F8FAFC] px-4 py-3 text-[11px] leading-relaxed text-[#64748B] ring-1 ring-[#E2E8F0]">
           <div className="mb-1 flex items-center gap-1.5 font-medium text-[#475569]">

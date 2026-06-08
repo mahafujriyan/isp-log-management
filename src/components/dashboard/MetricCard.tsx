@@ -21,34 +21,34 @@ const colorMap = {
     icon: "text-[#1565C0]",
   },
   green: {
-    text: "text-[#2E7D32]",
-    bg: "from-[#E8F5E9] to-[#C8E6C9]",
-    ring: "ring-[#A5D6A7]/40",
-    icon: "text-[#2E7D32]",
+    text: "text-[#1565C0]",
+    bg: "from-[#DBEAFE] to-[#BFDBFE]",
+    ring: "ring-[#93C5FD]/40",
+    icon: "text-[#1d4ed8]",
   },
   amber: {
-    text: "text-[#E65100]",
-    bg: "from-[#FFF8E1] to-[#FFECB3]",
-    ring: "ring-[#FFE082]/40",
-    icon: "text-[#E65100]",
+    text: "text-[#1976D2]",
+    bg: "from-[#EFF6FF] to-[#DBEAFE]",
+    ring: "ring-[#BFDBFE]/40",
+    icon: "text-[#1976D2]",
   },
   teal: {
-    text: "text-[#00695C]",
-    bg: "from-[#E0F2F1] to-[#B2DFDB]",
-    ring: "ring-[#80CBC4]/40",
-    icon: "text-[#00695C]",
+    text: "text-[#0d47a1]",
+    bg: "from-[#E3F2FD] to-[#C5CAE9]",
+    ring: "ring-[#90CAF9]/40",
+    icon: "text-[#0d47a1]",
   },
   red: {
-    text: "text-[#C62828]",
-    bg: "from-[#FFEBEE] to-[#FFCDD2]",
-    ring: "ring-[#EF9A9A]/40",
-    icon: "text-[#C62828]",
+    text: "text-[#1565C0]",
+    bg: "from-[#E3F2FD] to-[#BBDEFB]",
+    ring: "ring-[#90CAF9]/40",
+    icon: "text-[#1565C0]",
   },
   purple: {
-    text: "text-[#6A1B9A]",
-    bg: "from-[#F3E5F5] to-[#E1BEE7]",
-    ring: "ring-[#CE93D8]/40",
-    icon: "text-[#6A1B9A]",
+    text: "text-[#1976D2]",
+    bg: "from-[#DBEAFE] to-[#EDE9FE]",
+    ring: "ring-[#93C5FD]/40",
+    icon: "text-[#1976D2]",
   },
 };
 
@@ -77,7 +77,7 @@ export function MetricCard({
           </div>
           {sub && <div className="mt-0.5 text-[11px] text-[#64748B]">{sub}</div>}
           {trend && (
-            <div className="mt-1.5 text-[10px] font-medium text-[#2E7D32]">{trend}</div>
+            <div className="mt-1.5 text-[10px] font-medium text-[#1565C0]">{trend}</div>
           )}
         </div>
         {Icon && (

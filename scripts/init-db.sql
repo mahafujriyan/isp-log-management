@@ -127,3 +127,6 @@ WHERE NOT EXISTS (SELECT 1 FROM tenant_001.syslogs LIMIT 1);
 
 -- Menu manager: sidebar items + role permissions
 \i menu-migration.sql
+
+-- Company settings + demo devices
+\i company-migration.sql

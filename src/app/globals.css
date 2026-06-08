@@ -20,6 +20,15 @@
   --t1: #1e293b;
   --t2: #64748b;
   --t3: #94a3b8;
+
+  /* PHASE 9 design system */
+  --brand-primary: #1a3c5e;
+  --brand-accent: #0ea5e9;
+  --brand-success: #10b981;
+  --brand-warning: #f59e0b;
+  --brand-danger: #ef4444;
+  --brand-surface: #f8fafc;
+  --brand-gradient: linear-gradient(135deg, #1a3c5e 0%, #0c4a6e 50%, #0f172a 100%);
 }
 
 @theme inline {
@@ -44,17 +53,109 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+.pulse-dot { animation: pulse-dot 1.3s infinite; }
 
-.pulse-dot {
-  animation: pulse-dot 1.3s infinite;
+.dashboard-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.dashboard-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+/* ── Marketing premium animations ── */
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-18px); }
+}
+@keyframes float-y-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-12px) rotate(3deg); }
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 40px 8px rgba(14,165,233,0.25); }
+  50%       { box-shadow: 0 0 80px 20px rgba(14,165,233,0.5); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes scan-line {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+@keyframes grid-fade {
+  0%, 100% { opacity: 0.03; }
+  50%       { opacity: 0.07; }
+}
+@keyframes particle-drift {
+  0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(-120px) translateX(40px) scale(0); opacity: 0; }
+}
+@keyframes counter-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes border-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes typing-cursor {
+  0%, 100% { border-color: transparent; }
+  50%       { border-color: #0ea5e9; }
+}
+@keyframes log-row-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes blob-move {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(30px, -30px) scale(1.08); }
+  66%  { transform: translate(-20px, 20px) scale(0.94); }
+  100% { transform: translate(0, 0) scale(1); }
 }
 
-.dashboard-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.animate-float      { animation: float-y 6s ease-in-out infinite; }
+.animate-float-slow { animation: float-y-slow 9s ease-in-out infinite; }
+.animate-glow       { animation: glow-pulse 3s ease-in-out infinite; }
+.animate-shimmer    {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
+}
+.animate-scan       { animation: scan-line 4s linear infinite; }
+.animate-grid       { animation: grid-fade 5s ease-in-out infinite; }
+.animate-blob       { animation: blob-move 12s ease-in-out infinite; }
+.animate-counter    { animation: counter-up 0.6s ease-out both; }
+.animate-border-spin {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(from var(--angle, 0deg), transparent 30%, #0ea5e9, transparent 70%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: border-spin 3s linear infinite;
+    @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+  }
+}
+/* white-to-blue theme text shimmer */
+.text-shimmer {
+  background: linear-gradient(90deg, #1565c0 0%, #0ea5e9 40%, #1976d2 60%, #1565c0 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s linear infinite;
 }
 
-.dashboard-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+/* marketing page: clean white */
+.landing-bg {
+  background: #ffffff;
 }
+.log-row-animate { animation: log-row-in 0.35s ease-out both; }

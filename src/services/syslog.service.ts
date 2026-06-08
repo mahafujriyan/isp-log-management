@@ -14,6 +14,7 @@ interface SyslogQueryOptions {
   from?: string;
   to?: string;
   user?: string;
+  mac?: string;
 }
 
 function buildSyslogSelect(schema: string, options: SyslogQueryOptions): { sql: string; params: unknown[] } {
@@ -40,6 +41,10 @@ function buildSyslogSelect(schema: string, options: SyslogQueryOptions): { sql: 
   if (options.user) {
     params.push(`%${options.user}%`);
     sql += ` AND (LOWER(pppoe_user) LIKE LOWER($${params.length}) OR host(user_ip) LIKE $${params.length} OR host(visited_ip) LIKE $${params.length})`;
+  }
+  if (options.mac) {
+    params.push(`%${options.mac.replace(/[:-]/g, "")}%`);
+    sql += ` AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') LIKE UPPER($${params.length})`;
   }
 
   params.push(options.limit ?? 100);
@@ -120,12 +125,14 @@ export async function resolveLogsQuery(params: {
   from?: string;
   to?: string;
   user?: string;
+  mac?: string;
 }): Promise<{ logs: LogEntry[]; source: "tenant" | "all" | "mock"; schema_name?: string }> {
   const options: SyslogQueryOptions = {
     limit: params.limit,
     from: params.from,
     to: params.to,
     user: params.user,
+    mac: params.mac,
   };
 
   if (params.tenant_id) {
@@ -197,6 +204,10 @@ export async function ingestLogs(input: IngestLogsInput): Promise<{
 
   for (const entry of entries) {
     await insertTenantSyslog(schemaName, normalizeIngestEntry(entry));
+    if (entry.nat_ip) {
+      const { touchDeviceLastSeen } = await import("@/services/device.service");
+      await touchDeviceLastSeen(schemaName, entry.nat_ip).catch(() => {});
+    }
   }
 
   if (input.tenant_id) {

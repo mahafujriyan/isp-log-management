@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ISP Log Server | Premium Dashboard",
-  description: "ISP log management system — NAT/PPPoE log streaming, search, and admin panel",
+  title: "ISP LogServer | Professional ISP Log Management",
+  description: "Real-time ISP log management — marketing site, Super Admin portal, and Operator workspace",
 };
 
 export default function RootLayout({

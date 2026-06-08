@@ -2,9 +2,11 @@ export const ROUTES = {
   home: "/",
   dashboard: "/dashboard",
   admin: "/admin",
+  operator: "/operator",
   auth: {
     login: "/auth/login",
     superAdmin: "/auth/super-admin",
+    adminLogin: "/admin/login",
   },
   api: {
     health: "/api/health",
@@ -25,5 +27,5 @@ export const ROUTES = {
   },
 } as const;
 
-export const PROTECTED_ROUTES = ["/dashboard", "/admin"] as const;
-export const AUTH_ROUTES = ["/auth/login", "/auth/super-admin"] as const;
+export const PROTECTED_ROUTES = ["/dashboard", "/admin", "/operator"] as const;
+export const AUTH_ROUTES = ["/auth/login", "/auth/super-admin", "/admin/login"] as const;

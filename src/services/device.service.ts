@@ -18,11 +18,11 @@ interface DeviceRow {
   created_at: string;
 }
 
-function mapDevice(row: DeviceRow): Device {
+function mapDevice(row: DeviceRow & { users_today?: number }): Device {
   const status =
     row.status === "active" || row.status === "receiving"
       ? "receiving"
-      : row.status === "offline"
+      : row.status === "offline" || row.status === "disabled"
         ? "offline"
         : "online";
 
@@ -36,20 +36,53 @@ function mapDevice(row: DeviceRow): Device {
     port: row.syslog_port,
     listen_port: row.listen_port,
     status,
-    users_today: 0,
+    users_today: row.users_today ?? 0,
   };
 }
 
+const deviceSelectSql = `
+  SELECT d.id, d.name, host(d.device_ip) AS device_ip, d.config_type,
+         host(d.nat_ip) AS nat_ip, d.syslog_user, d.syslog_port, d.listen_port,
+         d.status, d.last_seen_at, d.created_at,
+         (
+           SELECT COUNT(DISTINCT s.pppoe_user)::int
+           FROM "%SCHEMA%".syslogs s
+           WHERE s.received_at >= CURRENT_DATE
+             AND host(s.nat_ip) = host(d.nat_ip)
+         ) AS users_today
+  FROM "%SCHEMA%".devices d
+`;
+
+function deviceQuery(schema: string, where = "", order = "ORDER BY d.created_at DESC") {
+  const schemaSafe = assertValidTenantSchema(schema);
+  return deviceSelectSql.replace(/%SCHEMA%/g, schemaSafe) + where + " " + order;
+}
+
 export async function listTenantDevices(schemaName: string): Promise<Device[]> {
-  const schema = assertValidTenantSchema(schemaName);
-  const rows = await db.getMany<DeviceRow>(
-    `SELECT id, name, host(device_ip) AS device_ip, config_type,
-            host(nat_ip) AS nat_ip, syslog_user, syslog_port, listen_port,
-            status, last_seen_at, created_at
-     FROM "${schema}".devices
-     ORDER BY created_at DESC`
+  const rows = await db.getMany<DeviceRow & { users_today: number }>(deviceQuery(schemaName));
+  return rows.map(mapDevice);
+}
+
+export async function listDisabledTenantDevices(schemaName: string): Promise<Device[]> {
+  const rows = await db.getMany<DeviceRow & { users_today: number }>(
+    deviceQuery(
+      schemaName,
+      ` WHERE d.status = 'disabled'
+          OR d.last_seen_at IS NULL
+          OR d.last_seen_at < NOW() - INTERVAL '30 minutes'`
+    )
   );
   return rows.map(mapDevice);
+}
+
+export async function recheckTenantDevices(schemaName: string): Promise<number> {
+  const schema = assertValidTenantSchema(schemaName);
+  const result = await db.query(
+    `UPDATE "${schema}".devices SET status = 'disabled'
+     WHERE status = 'active'
+       AND (last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL '30 minutes')`
+  );
+  return result.rowCount ?? 0;
 }
 
 export async function createTenantDevice(
@@ -81,7 +114,61 @@ export async function createTenantDevice(
   );
 
   if (!row) throw new Error("Failed to create device");
-  return mapDevice(row);
+  return mapDevice({ ...row, users_today: 0 });
+}
+
+export async function updateTenantDevice(
+  schemaName: string,
+  deviceId: number,
+  input: Partial<CreateDeviceInput> & { status?: string }
+): Promise<Device> {
+  const schema = assertValidTenantSchema(schemaName);
+
+  const row = await db.getOne<DeviceRow>(
+    `UPDATE "${schema}".devices SET
+       name = COALESCE($2, name),
+       device_ip = COALESCE($3::inet, device_ip),
+       config_type = COALESCE($4, config_type),
+       nat_ip = COALESCE($5::inet, nat_ip),
+       syslog_user = COALESCE($6, syslog_user),
+       syslog_port = COALESCE($7, syslog_port),
+       listen_port = COALESCE($8, listen_port),
+       status = COALESCE($9, status)
+     WHERE id = $1
+     RETURNING id, name, host(device_ip) AS device_ip, config_type,
+               host(nat_ip) AS nat_ip, syslog_user, syslog_port, listen_port,
+               status, last_seen_at, created_at`,
+    [
+      deviceId,
+      input.name?.trim(),
+      input.device_ip?.trim(),
+      input.config_type,
+      input.nat_ip?.trim(),
+      input.syslog_user,
+      input.syslog_port,
+      input.listen_port,
+      input.status,
+    ]
+  );
+
+  if (!row) throw new Error("Device not found");
+  return mapDevice({ ...row, users_today: 0 });
+}
+
+export async function deleteTenantDevice(schemaName: string, deviceId: number): Promise<boolean> {
+  const schema = assertValidTenantSchema(schemaName);
+  const result = await db.query(`DELETE FROM "${schema}".devices WHERE id = $1`, [deviceId]);
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function touchDeviceLastSeen(schemaName: string, deviceIp: string): Promise<void> {
+  const schema = assertValidTenantSchema(schemaName);
+  await db.query(
+    `UPDATE "${schema}".devices
+     SET last_seen_at = NOW(), status = 'active'
+     WHERE host(device_ip) = $1 OR host(nat_ip) = $1`,
+    [deviceIp]
+  );
 }
 
 export async function countTenantDevices(schemaName: string): Promise<number> {
@@ -99,11 +186,14 @@ export async function countTenantDevices(schemaName: string): Promise<number> {
 export async function resolveDevicesQuery(params: {
   tenant_id?: number;
   schema?: string;
+  disabled?: boolean;
 }): Promise<{ devices: Device[]; schema_name: string | null; source: "tenant" | "mock" }> {
   if (params.tenant_id) {
     const tenant = await getTenantById(params.tenant_id);
     if (tenant) {
-      const devices = await listTenantDevices(tenant.schema_name);
+      const devices = params.disabled
+        ? await listDisabledTenantDevices(tenant.schema_name)
+        : await listTenantDevices(tenant.schema_name);
       return { devices, schema_name: tenant.schema_name, source: "tenant" };
     }
   }
@@ -111,9 +201,15 @@ export async function resolveDevicesQuery(params: {
   if (params.schema) {
     const tenant = await getTenantBySchema(params.schema);
     if (tenant) {
-      const devices = await listTenantDevices(tenant.schema_name);
+      const devices = params.disabled
+        ? await listDisabledTenantDevices(tenant.schema_name)
+        : await listTenantDevices(tenant.schema_name);
       return { devices, schema_name: tenant.schema_name, source: "tenant" };
     }
+  }
+
+  if (params.disabled) {
+    return { devices: [], schema_name: null, source: "mock" };
   }
 
   return { devices: DEMO_DEVICES, schema_name: null, source: "mock" };
