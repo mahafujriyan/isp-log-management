@@ -3,24 +3,20 @@
 import { useEffect, useState } from "react";
 import { OperatorStatCard } from "@/components/operator/OperatorPortalLayout";
 import Link from "next/link";
-import { DEMO_OPERATOR_NAV, PORTAL_ROUTES } from "@/constants/portal.constants";
+import { PORTAL_ROUTES } from "@/constants/portal.constants";
 import { useRole } from "@/hooks/useRole";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
-const FULL_CARDS = [
+const QUICK_LINKS = [
   { href: PORTAL_ROUTES.operator.logs, title: "Log Stream", desc: "Live NAT/PPPoE entries from your tenant" },
-  { href: PORTAL_ROUTES.operator.users, title: "User Manager", desc: "Create operators and reset passwords" },
+  { href: PORTAL_ROUTES.operator.users, title: "User Manager", desc: "Team accounts and role assignments" },
   { href: PORTAL_ROUTES.operator.reports, title: "Analytics Reports", desc: "MikroTik metrics and dynamic charts" },
   { href: PORTAL_ROUTES.operator.legacyDashboard, title: "Full Console", desc: "Complete dashboard with all admin tools" },
 ];
 
-const DEMO_CARDS = [
-  { href: PORTAL_ROUTES.operator.logs, title: "Log Stream", desc: "Sample sandbox logs — not production data" },
-];
-
 export default function OperatorHomePage() {
-  const { isDemo, tenantId } = useRole();
+  const { tenantId } = useRole();
   const [metrics, setMetrics] = useState({ totalLogs: 0, activeUsers: 0, devices: 0 });
 
   useEffect(() => {
@@ -30,8 +26,6 @@ export default function OperatorHomePage() {
       .then((m) => setMetrics({ totalLogs: m.totalLogs ?? 0, activeUsers: m.activeUsers ?? 0, devices: m.devices ?? 0 }))
       .catch(() => {});
   }, [tenantId]);
-
-  const cards = isDemo ? DEMO_CARDS : FULL_CARDS;
 
   return (
     <div>
@@ -44,7 +38,7 @@ export default function OperatorHomePage() {
       </motion.div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {cards.map((card) => (
+        {QUICK_LINKS.map((card) => (
           <Link key={card.href} href={card.href}
             className="group rounded-xl border border-white/[0.07] bg-white/[0.025] p-5 shadow-sm transition hover:-translate-y-1 hover:border-blue-500/20 hover:bg-white/[0.045]">
             <div className="flex items-center justify-between">
@@ -57,12 +51,6 @@ export default function OperatorHomePage() {
           </Link>
         ))}
       </div>
-
-      {isDemo && (
-        <p className="mt-6 text-center text-[12px] text-white/30">
-          Demo preview only · {DEMO_OPERATOR_NAV.length} sections available
-        </p>
-      )}
     </div>
   );
 }

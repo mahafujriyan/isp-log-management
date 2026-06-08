@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { env } from "@/config/env.config";
-import { PERMISSIONS, ROLES, type Permission } from "@/constants/roles.constants";
+import { PERMISSIONS, isDemoAccount, type Permission } from "@/constants/roles.constants";
 import { hasRole } from "@/utils/rbac.utils";
 import { NextResponse } from "next/server";
 
@@ -53,9 +53,10 @@ export async function resolveTenantScope(requested?: number): Promise<{
 }> {
   const session = await auth();
   const role = session?.user?.role;
+  const accountType = session?.user?.accountType;
   const sessionTenantId = session?.user?.tenantId;
 
-  if (role === ROLES.DEMO) {
+  if (isDemoAccount(role, accountType)) {
     if (!sessionTenantId) {
       return { tenant_id: undefined, error: apiError("Demo account misconfigured", 403) };
     }
@@ -69,4 +70,12 @@ export async function resolveTenantScope(requested?: number): Promise<{
   }
 
   return { tenant_id: requested };
+}
+
+export async function rejectDemoWrite(): Promise<NextResponse | null> {
+  const session = await auth();
+  if (isDemoAccount(session?.user?.role, session?.user?.accountType)) {
+    return apiError("Demo accounts are read-only previews", 403);
+  }
+  return null;
 }

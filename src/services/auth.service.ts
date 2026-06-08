@@ -41,7 +41,6 @@ export async function authenticateUser(
 
       if (portal === "super_admin" && user.role !== "super_admin") return null;
       if (portal === "user" && user.role === "super_admin") return null;
-      if (portal === "user" && user.account_type === "demo" && user.role !== "demo") return null;
 
       return {
         id: String(user.id),

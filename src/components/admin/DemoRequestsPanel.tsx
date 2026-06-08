@@ -84,8 +84,7 @@ export function DemoRequestsPanel() {
   return (
     <div className="space-y-4">
       <p className="text-[13px] text-slate-400">
-        Marketing form submissions appear here. Create a time-limited demo login using the shared sandbox
-        (<code className="text-blue-300">tenant_demo</code>) — no access to production tenants.
+        Marketing form submissions appear here. Provision a time-limited login with the full operator portal on isolated sandbox data.
       </p>
 
       {error && (

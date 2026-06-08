@@ -5,9 +5,11 @@ import type { User } from "@/types";
 import { ALL_ROLES, ROLE_LABELS } from "@/constants/roles.constants";
 import type { AppRole } from "@/constants/roles.constants";
 import { Tag } from "@/components/shared/Tag";
+import { useRole } from "@/hooks/useRole";
 import { Key, Loader2, Plus, Trash2, X } from "lucide-react";
 
 export function UserManagerPanel() {
+  const { isDemo } = useRole();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -130,14 +132,21 @@ export function UserManagerPanel() {
           placeholder="Search users..."
           className="w-[200px] rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]"
         />
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="ml-auto flex items-center gap-1 rounded-md bg-[#1976D2] px-3.5 py-1.5 text-[12px] font-medium text-white"
-        >
-          <Plus size={13} /> Add User
-        </button>
+        {!isDemo && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="ml-auto flex items-center gap-1 rounded-md bg-[#1976D2] px-3.5 py-1.5 text-[12px] font-medium text-white"
+          >
+            <Plus size={13} /> Add User
+          </button>
+        )}
       </div>
+      {isDemo && (
+        <div className="mb-3 rounded-lg bg-[#EFF6FF] px-3 py-2 text-[12px] text-[#1D4ED8]">
+          Sample team users shown for preview — same layout as production (read-only in demo).
+        </div>
+      )}
       {error && <div className="mb-3 rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#B91C1C]">{error}</div>}
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-[#1565C0]" size={24} /></div>
@@ -161,13 +170,21 @@ export function UserManagerPanel() {
                 </td>
                 <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">{new Date(u.created_at).toLocaleDateString()}</td>
                 <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">
-                  <button type="button" onClick={() => handleToggleActive(u)}>
+                  {isDemo ? (
                     <Tag variant={u.is_active ? "ok" : "warn"}>{u.is_active ? "Active" : "Inactive"}</Tag>
-                  </button>
+                  ) : (
+                    <button type="button" onClick={() => handleToggleActive(u)}>
+                      <Tag variant={u.is_active ? "ok" : "warn"}>{u.is_active ? "Active" : "Inactive"}</Tag>
+                    </button>
+                  )}
                 </td>
                 <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">
-                  <button type="button" onClick={() => setResetUser(u)} className="mr-1.5 inline text-[#E65100]"><Key size={15} /></button>
-                  <button type="button" onClick={() => handleDelete(u)} className="inline text-[#C62828]"><Trash2 size={15} /></button>
+                  {!isDemo && (
+                    <>
+                      <button type="button" onClick={() => setResetUser(u)} className="mr-1.5 inline text-[#E65100]"><Key size={15} /></button>
+                      <button type="button" onClick={() => handleDelete(u)} className="inline text-[#C62828]"><Trash2 size={15} /></button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

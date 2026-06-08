@@ -1,13 +1,19 @@
-import { listTenants, createTenant } from "@/services/tenant.service";
+import { listTenants, createTenant, getTenantById } from "@/services/tenant.service";
 import { apiError, requirePermission } from "@/utils/api.utils";
 import { mapDatabaseError } from "@/utils/db-error.utils";
+import { isDemoAccount } from "@/constants/roles.constants";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const { error } = await requirePermission("TENANT_READ");
+  const { error, session } = await requirePermission("TENANT_READ");
   if (error) return error;
 
   try {
+    if (isDemoAccount(session?.user?.role, session?.user?.accountType) && session?.user?.tenantId) {
+      const tenant = await getTenantById(session.user.tenantId);
+      return NextResponse.json(tenant ? [tenant] : []);
+    }
+
     const tenants = await listTenants();
     return NextResponse.json(tenants);
   } catch (err) {

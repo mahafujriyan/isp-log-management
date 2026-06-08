@@ -1,6 +1,6 @@
 import { PORTAL_ROUTES } from "@/constants/portal.constants";
 import { ROUTES } from "@/constants/routes.constants";
-import { ROLES, DEMO_BLOCKED_OPERATOR_PATHS } from "@/constants/roles.constants";
+import { ROLES, isDemoAccount } from "@/constants/roles.constants";
 import { auth } from "@/auth.edge";
 import { NextResponse } from "next/server";
 
@@ -8,6 +8,8 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role;
+  const accountType = req.auth?.user?.accountType;
+  const demoAccount = isDemoAccount(role, accountType);
 
   const isPublicAuthPage =
     pathname.startsWith(ROUTES.auth.login) ||
@@ -35,21 +37,13 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (role === ROLES.DEMO) {
-    if (isAdminPortal || isLegacyDashboard) {
-      return NextResponse.redirect(new URL(PORTAL_ROUTES.operator.home, req.url));
-    }
-    if (DEMO_BLOCKED_OPERATOR_PATHS.some((p) => pathname.startsWith(p))) {
-      return NextResponse.redirect(new URL(PORTAL_ROUTES.operator.home, req.url));
-    }
+  // Demo accounts: full operator + dashboard UI, but never super admin
+  if (demoAccount && isAdminPortal) {
+    return NextResponse.redirect(new URL(PORTAL_ROUTES.operator.home, req.url));
   }
 
   if (isAdminPortal && isLoggedIn && role !== ROLES.SUPER_ADMIN) {
     return NextResponse.redirect(new URL(PORTAL_ROUTES.operator.home, req.url));
-  }
-
-  if (isOperatorPortal && isLoggedIn && role === ROLES.SUPER_ADMIN) {
-    // Super admin can use operator portal
   }
 
   if (isPublicAuthPage && isLoggedIn) {

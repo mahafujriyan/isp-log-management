@@ -14,6 +14,7 @@ import { UserManagerPanel } from "@/components/dashboard/UserManagerPanel";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { PAGE_TITLES } from "@/constants/navigation.constants";
+import { useTenantContext } from "@/hooks/useTenantContext";
 import { BtrcPanel } from "@/components/btrc/BtrcPanel";
 import type { DashboardPageId, LogEntry } from "@/types";
 import { getHourlyLogCounts, getPortDistribution } from "@/services/mock-data.service";
@@ -32,6 +33,7 @@ const FAQS = [
 ];
 
 export function DashboardApp() {
+  const { tenantId } = useTenantContext();
   const [page, setPage] = useState<DashboardPageId>("dashboard");
   const [clock, setClock] = useState("--:--:--");
   const [streamCount, setStreamCount] = useState(0);
@@ -59,7 +61,7 @@ export function DashboardApp() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/dashboard/metrics?tenant_id=1")
+    fetch(`/api/dashboard/metrics?tenant_id=${tenantId}`)
       .then((r) => r.json())
       .then((m) => {
         setMetrics((prev) => ({
@@ -73,7 +75,7 @@ export function DashboardApp() {
       })
       .catch(() => {});
 
-    fetch("/api/logs?tenant_id=1&limit=200")
+    fetch(`/api/logs?tenant_id=${tenantId}&limit=200`)
       .then((r) => r.json())
       .then((data) => {
         const logs: LogEntry[] = data.logs ?? [];
@@ -98,7 +100,7 @@ export function DashboardApp() {
       .catch(() => {
         setHourlyData(getHourlyLogCounts());
       });
-  }, []);
+  }, [tenantId]);
 
   return (
     <DashboardLayout

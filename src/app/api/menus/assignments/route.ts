@@ -2,7 +2,7 @@ import {
   assignMenuToRole,
   listRoleMenuAssignments,
 } from "@/services/menu.service";
-import { apiError, requirePermission } from "@/utils/api.utils";
+import { apiError, rejectDemoWrite, requirePermission } from "@/utils/api.utils";
 import { mapDatabaseError } from "@/utils/db-error.utils";
 import { isAppRole } from "@/utils/rbac.utils";
 import { NextResponse } from "next/server";
@@ -21,6 +21,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const writeBlock = await rejectDemoWrite();
+  if (writeBlock) return writeBlock;
+
   const { error } = await requirePermission("MENU_MANAGE");
   if (error) return error;
 

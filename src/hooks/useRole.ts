@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { isDemoAccount } from "@/constants/roles.constants";
 import type { AppRole, Permission } from "@/constants/roles.constants";
 import { hasPermission, isRoleAtLeast } from "@/utils/rbac.utils";
 
@@ -17,7 +18,7 @@ export function useRole() {
     can: (permission: Permission) => hasPermission(role, permission),
     isAtLeast: (minimum: AppRole) => isRoleAtLeast(role, minimum),
     isSuperAdmin: role === "super_admin",
-    isDemo: role === "demo" || session?.user?.accountType === "demo",
+    isDemo: isDemoAccount(role, session?.user?.accountType),
     tenantId: session?.user?.tenantId,
     demoExpiresAt: session?.user?.demoExpiresAt,
   };

@@ -37,8 +37,5 @@ export const OPERATOR_NAV = [
   { href: PORTAL_ROUTES.operator.legacyDashboard, label: "Full Console", icon: "panel-left" },
 ] as const;
 
-/** Demo accounts: sandbox logs only — no production console */
-export const DEMO_OPERATOR_NAV = [
-  { href: PORTAL_ROUTES.operator.home, label: "Dashboard", icon: "layout-dashboard" },
-  { href: PORTAL_ROUTES.operator.logs, label: "Logs", icon: "activity" },
-] as const;
+/** @deprecated Use OPERATOR_NAV — demo accounts now get the full operator experience */
+export const DEMO_OPERATOR_NAV = OPERATOR_NAV;

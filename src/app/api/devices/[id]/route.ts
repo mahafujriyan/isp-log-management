@@ -3,7 +3,7 @@ import {
   updateTenantDevice,
 } from "@/services/device.service";
 import { getTenantById } from "@/services/tenant.service";
-import { apiError, requirePermission } from "@/utils/api.utils";
+import { apiError, rejectDemoWrite, requirePermission } from "@/utils/api.utils";
 import { mapDatabaseError } from "@/utils/db-error.utils";
 import { NextResponse } from "next/server";
 
@@ -11,6 +11,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const writeBlock = await rejectDemoWrite();
+  if (writeBlock) return writeBlock;
+
   const { error } = await requirePermission("DEVICE_WRITE");
   if (error) return error;
 
@@ -46,6 +49,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const writeBlock = await rejectDemoWrite();
+  if (writeBlock) return writeBlock;
+
   const { error } = await requirePermission("DEVICE_WRITE");
   if (error) return error;
 

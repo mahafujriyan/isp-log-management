@@ -28,7 +28,7 @@ export async function upsertDemoUser(input: {
          username = $2,
          password_hash = $3,
          tenant_id = $4,
-         role = 'demo',
+         role = 'operator',
          account_type = 'demo',
          demo_expires_at = $5,
          is_active = TRUE
@@ -43,7 +43,7 @@ export async function upsertDemoUser(input: {
   const row = await db.getOne<User>(
     `INSERT INTO public.users
       (tenant_id, username, email, password_hash, role, account_type, demo_expires_at, is_active)
-     VALUES ($1, $2, $3, $4, 'demo', 'demo', $5, TRUE)
+     VALUES ($1, $2, $3, $4, 'operator', 'demo', $5, TRUE)
      RETURNING id, tenant_id, username, email, role, is_active, account_type, demo_expires_at, created_at`,
     [input.tenant_id, input.username.trim(), email, hash, input.demo_expires_at]
   );

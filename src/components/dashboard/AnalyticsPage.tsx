@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DynamicChart } from "@/components/dashboard/DynamicChart";
+import { useTenantContext } from "@/hooks/useTenantContext";
 import type { MetricTimeRange, MetricWithData } from "@/types/metrics.types";
 import { RefreshCw } from "lucide-react";
 
@@ -19,10 +20,9 @@ const sizeClass = {
 };
 
 export function AnalyticsPage() {
+  const { tenantId, tenants, setTenantId, isDemo } = useTenantContext();
   const [metrics, setMetrics] = useState<MetricWithData[]>([]);
   const [range, setRange] = useState<MetricTimeRange>("24h");
-  const [tenantId, setTenantId] = useState(1);
-  const [tenants, setTenants] = useState<Array<{ id: number; admin_name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -50,18 +50,6 @@ export function AnalyticsPage() {
   }, [tenantId, range, refreshKey]);
 
   useEffect(() => {
-    fetch("/api/tenants")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data) && data[0]) {
-          setTenants(data.map((t: { id: number; admin_name: string }) => ({ id: t.id, admin_name: t.admin_name })));
-          setTenantId(data[0].id);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
     loadMetrics();
   }, [loadMetrics]);
 
@@ -80,18 +68,23 @@ export function AnalyticsPage() {
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4">
         <div>
           <div className="mb-1 text-[11px] font-medium text-[#64748B]">Tenant</div>
-          <select
-            value={tenantId}
-            onChange={(e) => setTenantId(Number(e.target.value))}
-            className="rounded-md border border-[#E2E8F0] px-3 py-1.5 text-[12px]"
-          >
-            {tenants.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.admin_name}
-              </option>
-            ))}
-            {tenants.length === 0 && <option value={1}>Tenant #1</option>}
-          </select>
+          {tenants.length > 1 && !isDemo ? (
+            <select
+              value={tenantId}
+              onChange={(e) => setTenantId(Number(e.target.value))}
+              className="rounded-md border border-[#E2E8F0] px-3 py-1.5 text-[12px]"
+            >
+              {tenants.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.admin_name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-[12px] text-[#64748B]">
+              {tenants[0]?.admin_name ?? "Demo Sandbox"}
+            </div>
+          )}
         </div>
         <div>
           <div className="mb-1 text-[11px] font-medium text-[#64748B]">Time range</div>

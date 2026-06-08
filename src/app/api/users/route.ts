@@ -1,12 +1,26 @@
 import { createUser, listUsers } from "@/services/user.service";
-import { apiError, requirePermission } from "@/utils/api.utils";
+import { apiError, rejectDemoWrite, requirePermission } from "@/utils/api.utils";
 import { mapDatabaseError } from "@/utils/db-error.utils";
+import { isDemoAccount } from "@/constants/roles.constants";
 import { isAppRole } from "@/utils/rbac.utils";
 import { NextResponse } from "next/server";
 
+function demoSampleUsers(tenantId: number) {
+  const now = new Date().toISOString();
+  return [
+    { id: 9001, tenant_id: tenantId, username: "karim_noc", email: "noc@demosandbox.local", role: "operator", is_active: true, account_type: "standard", created_at: now },
+    { id: 9002, tenant_id: tenantId, username: "sadia_ops", email: "ops@demosandbox.local", role: "viewer", is_active: true, account_type: "standard", created_at: now },
+    { id: 9003, tenant_id: tenantId, username: "imran_field", email: "field@demosandbox.local", role: "viewer", is_active: true, account_type: "standard", created_at: now },
+  ];
+}
+
 export async function GET() {
-  const { error } = await requirePermission("USERS_READ");
+  const { error, session } = await requirePermission("USERS_READ");
   if (error) return error;
+
+  if (isDemoAccount(session?.user?.role, session?.user?.accountType) && session?.user?.tenantId) {
+    return NextResponse.json(demoSampleUsers(session.user.tenantId));
+  }
 
   try {
     const users = await listUsers();
@@ -18,6 +32,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const writeBlock = await rejectDemoWrite();
+  if (writeBlock) return writeBlock;
+
   const { error } = await requirePermission("USER_WRITE");
   if (error) return error;
 

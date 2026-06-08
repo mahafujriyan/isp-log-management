@@ -3,22 +3,31 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Tenant } from "@/types";
-import { ROLES } from "@/constants/roles.constants";
+import { isDemoAccount } from "@/constants/roles.constants";
 
 export function useTenantContext() {
   const { data: session } = useSession();
   const sessionTenantId = session?.user?.tenantId;
-  const isDemo = session?.user?.role === ROLES.DEMO || session?.user?.accountType === "demo";
+  const demo = isDemoAccount(session?.user?.role, session?.user?.accountType);
 
   const [tenantId, setTenantId] = useState(sessionTenantId ?? 1);
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(!isDemo);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isDemo && sessionTenantId) {
-      setTenantId(sessionTenantId);
-      setTenants([{ id: sessionTenantId } as Tenant]);
-      setLoading(false);
+    if (demo && sessionTenantId) {
+      fetch(`/api/tenants`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setTenants(data);
+            setTenantId(sessionTenantId);
+          } else {
+            setTenantId(sessionTenantId);
+          }
+        })
+        .catch(() => setTenantId(sessionTenantId))
+        .finally(() => setLoading(false));
       return;
     }
 
@@ -32,11 +41,19 @@ export function useTenantContext() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [isDemo, sessionTenantId]);
+  }, [demo, sessionTenantId]);
 
   const activeTenant = tenants.find((t) => t.id === tenantId) ?? null;
 
-  return { tenantId, setTenantId, tenants, activeTenant, loading, isDemo, demoExpiresAt: session?.user?.demoExpiresAt };
+  return {
+    tenantId,
+    setTenantId,
+    tenants,
+    activeTenant,
+    loading,
+    isDemo: demo,
+    demoExpiresAt: session?.user?.demoExpiresAt,
+  };
 }
 
 export function logsFromTimeRange(range: string): { from?: string; to?: string } {

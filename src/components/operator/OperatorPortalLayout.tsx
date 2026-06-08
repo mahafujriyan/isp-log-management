@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { motion } from "framer-motion";
-import { DEMO_OPERATOR_NAV, OPERATOR_NAV, PORTAL_ROUTES } from "@/constants/portal.constants";
+import { OPERATOR_NAV, PORTAL_ROUTES } from "@/constants/portal.constants";
 import { useRole } from "@/hooks/useRole";
 import {
   Activity,
@@ -31,7 +31,6 @@ export function OperatorPortalLayout({ children }: { children: React.ReactNode }
   const { session, isDemo, demoExpiresAt } = useRole();
   const [open, setOpen] = useState(false);
   const name = session?.user?.username ?? session?.user?.name ?? "Operator";
-  const nav = isDemo ? DEMO_OPERATOR_NAV : OPERATOR_NAV;
 
   return (
     <div className="flex min-h-screen bg-[#04090f]">
@@ -48,14 +47,14 @@ export function OperatorPortalLayout({ children }: { children: React.ReactNode }
           <div>
             <div className="text-sm font-bold">ISP LogServer</div>
             <div className="text-[10px] uppercase tracking-wider text-blue-300/70">
-              {isDemo ? "Demo Sandbox" : "Operator Portal"}
+              {isDemo ? "Demo · Full Portal" : "Operator Portal"}
             </div>
           </div>
           <button type="button" className="lg:hidden" onClick={() => setOpen(false)}><X size={18} /></button>
         </div>
 
         <nav className="flex-1 space-y-1 p-3">
-          {nav.map((item) => {
+          {OPERATOR_NAV.map((item) => {
             const Icon = ICONS[item.icon];
             const active = pathname === item.href;
             return (
@@ -93,19 +92,17 @@ export function OperatorPortalLayout({ children }: { children: React.ReactNode }
               <Menu size={20} />
             </button>
             <div>
-              <h1 className="text-xl font-bold lg:text-2xl">
-                {isDemo ? "Demo Preview" : "Operator Dashboard"}
-              </h1>
+              <h1 className="text-xl font-bold lg:text-2xl">Operator Dashboard</h1>
               <p className="text-sm text-white/40">
                 {isDemo
-                  ? "Sandbox data only — production tenants are not accessible"
+                  ? "Same operator portal as production — sandbox data only"
                   : "Monitor networks and manage connections"}
               </p>
             </div>
           </div>
           {isDemo && demoExpiresAt && (
             <div className="mt-3 inline-flex rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-[12px] text-blue-200">
-              Demo expires: {new Date(demoExpiresAt).toLocaleString()}
+              Demo access until {new Date(demoExpiresAt).toLocaleString()}
             </div>
           )}
         </header>

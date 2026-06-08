@@ -1,6 +1,6 @@
 import { createTenantDevice, resolveDevicesQuery } from "@/services/device.service";
 import { getTenantById } from "@/services/tenant.service";
-import { apiError, requirePermission, resolveTenantScope } from "@/utils/api.utils";
+import { apiError, rejectDemoWrite, requirePermission, resolveTenantScope } from "@/utils/api.utils";
 import { mapDatabaseError } from "@/utils/db-error.utils";
 import { NextResponse } from "next/server";
 
@@ -34,6 +34,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const writeBlock = await rejectDemoWrite();
+  if (writeBlock) return writeBlock;
+
   const { error } = await requirePermission("DEVICE_WRITE");
   if (error) return error;
 
