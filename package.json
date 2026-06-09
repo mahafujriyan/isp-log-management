@@ -23,6 +23,7 @@
     "db:init": "cd scripts && psql -U loguser -d isp_logserver -f init-db.sql",
     "db:setup": "node scripts/setup-database.mjs",
     "db:demo": "node scripts/apply-demo-migrations.mjs",
+    "db:company-branding": "node scripts/apply-company-branding.mjs",
     "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql",
     "db:phase8": "cd scripts && psql -U loguser -d isp_logserver -f phase8-migration.sql"
   },

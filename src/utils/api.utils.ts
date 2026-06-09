@@ -69,6 +69,16 @@ export async function resolveTenantScope(requested?: number): Promise<{
     return { tenant_id: sessionTenantId };
   }
 
+  if (sessionTenantId && role !== "super_admin") {
+    if (requested && requested !== sessionTenantId) {
+      return {
+        tenant_id: undefined,
+        error: apiError("Forbidden — you can only manage your assigned tenant", 403),
+      };
+    }
+    return { tenant_id: sessionTenantId };
+  }
+
   return { tenant_id: requested };
 }
 

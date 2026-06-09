@@ -37,6 +37,10 @@ export const env = {
   ingest: {
     secret: process.env.INGEST_SECRET ?? process.env.CRON_SECRET ?? "",
   },
+
+  imgbb: {
+    apiKey: process.env.IMGBB_API_KEY ?? "",
+  },
 } as const;
 
 export function requireEnv(key: keyof typeof env.database | "authSecret"): string {

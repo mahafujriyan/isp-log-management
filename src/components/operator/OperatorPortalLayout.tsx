@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   PanelLeft,
+  Settings,
   Users,
   X,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const ICONS = {
   users: Users,
   "file-bar-chart": FileBarChart,
   "panel-left": PanelLeft,
+  settings: Settings,
 } as const;
 
 export function OperatorPortalLayout({ children }: { children: React.ReactNode }) {

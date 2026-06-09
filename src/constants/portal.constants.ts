@@ -7,6 +7,7 @@ export const PORTAL_ROUTES = {
     reports: "/operator/reports",
     login: "/auth/login",
     legacyDashboard: "/dashboard",
+    settings: "/operator/settings",
   },
   admin: {
     home: "/admin",
@@ -34,6 +35,7 @@ export const OPERATOR_NAV = [
   { href: PORTAL_ROUTES.operator.logs, label: "Logs", icon: "activity" },
   { href: PORTAL_ROUTES.operator.users, label: "Users", icon: "users" },
   { href: PORTAL_ROUTES.operator.reports, label: "Reports", icon: "file-bar-chart" },
+  { href: PORTAL_ROUTES.operator.settings, label: "Account", icon: "settings" },
   { href: PORTAL_ROUTES.operator.legacyDashboard, label: "Full Console", icon: "panel-left" },
 ] as const;
 

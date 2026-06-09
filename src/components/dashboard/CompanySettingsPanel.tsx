@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTenantContext } from "@/hooks/useTenantContext";
-import { Download, Loader2, Save } from "lucide-react";
+import { Download, ImagePlus, Loader2, Save, Trash2 } from "lucide-react";
 
 interface CompanySettings {
   company_name: string;
+  logo_url: string;
+  tagline: string;
   server_ip: string;
   alert_email: string;
+  support_phone: string;
+  website: string;
+  address: string;
+  timezone: string;
   log_retention_days: number;
 }
 
@@ -17,18 +23,28 @@ interface BackupInfo {
   created_at: string;
 }
 
+const EMPTY: CompanySettings = {
+  company_name: "",
+  logo_url: "",
+  tagline: "",
+  server_ip: "",
+  alert_email: "",
+  support_phone: "",
+  website: "",
+  address: "",
+  timezone: "Asia/Dhaka",
+  log_retention_days: 90,
+};
+
 export function CompanySettingsPanel() {
   const { tenantId } = useTenantContext();
-  const [form, setForm] = useState<CompanySettings>({
-    company_name: "",
-    server_ip: "",
-    alert_email: "",
-    log_retention_days: 90,
-  });
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState<CompanySettings>(EMPTY);
   const [lastBackup, setLastBackup] = useState<BackupInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -38,10 +54,16 @@ export function CompanySettingsPanel() {
       const data = await res.json();
       if (data.settings) {
         setForm({
-          company_name: data.settings.company_name,
-          server_ip: data.settings.server_ip,
-          alert_email: data.settings.alert_email,
-          log_retention_days: data.settings.log_retention_days,
+          company_name: data.settings.company_name ?? "",
+          logo_url: data.settings.logo_url ?? "",
+          tagline: data.settings.tagline ?? "",
+          server_ip: data.settings.server_ip ?? "",
+          alert_email: data.settings.alert_email ?? "",
+          support_phone: data.settings.support_phone ?? "",
+          website: data.settings.website ?? "",
+          address: data.settings.address ?? "",
+          timezone: data.settings.timezone ?? "Asia/Dhaka",
+          log_retention_days: data.settings.log_retention_days ?? 90,
         });
       }
       if (data.lastBackup) setLastBackup(data.lastBackup);
@@ -51,6 +73,25 @@ export function CompanySettingsPanel() {
   }, [tenantId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleLogo(file: File | null) {
+    if (!file || !file.type.startsWith("image/") || file.size > 4 * 1024 * 1024) return;
+    setUploading(true);
+    setMessage(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/company/logo", { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Upload failed");
+      setForm((f) => ({ ...f, logo_url: data.url }));
+      setMessage("Logo uploaded to ImageBB. Save settings to keep the URL.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Logo upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -99,21 +140,49 @@ export function CompanySettingsPanel() {
     );
   }
 
+  const inputClass = "w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]";
+
   return (
     <div className="flex flex-col gap-3.5">
       {message && (
         <div className="rounded-lg bg-[#E8F5E9] px-3 py-2 text-[12px] text-[#2E7D32]">{message}</div>
       )}
       <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
-        <div className="mb-3 text-[12px] font-medium text-[#64748B]">Organization</div>
+        <div className="mb-3 text-[12px] font-medium text-[#64748B]">Branding</div>
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]">
+            {form.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.logo_url} alt="Logo" className="h-full w-full object-contain p-1" />
+            ) : (
+              <span className="text-lg font-bold text-[#1565C0]">{form.company_name[0] ?? "C"}</span>
+            )}
+          </div>
+          <div>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogo(e.target.files?.[0] ?? null)} />
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="flex items-center gap-1 rounded-md bg-[#1976D2] px-3 py-1.5 text-[12px] text-white disabled:opacity-60">
+              {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
+              {uploading ? "Uploading..." : "Upload to ImageBB"}
+            </button>
+            {form.logo_url && (
+              <button type="button" onClick={() => setForm((f) => ({ ...f, logo_url: "" }))} className="ml-2 text-[11px] text-[#64748B]">
+                <Trash2 size={12} className="inline" /> Remove
+              </button>
+            )}
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
             { key: "company_name", label: "Company name" },
-            { key: "server_ip", label: "Server IP" },
+            { key: "tagline", label: "Tagline" },
             { key: "alert_email", label: "Alert email" },
+            { key: "support_phone", label: "Support phone" },
+            { key: "website", label: "Website" },
+            { key: "server_ip", label: "Server IP" },
+            { key: "timezone", label: "Timezone" },
             { key: "log_retention_days", label: "Log retention (days)", type: "number" },
           ].map((f) => (
-            <div key={f.key}>
+            <div key={f.key} className={f.key === "tagline" ? "sm:col-span-2" : ""}>
               <div className="mb-1 text-[12px] text-[#64748B]">{f.label}</div>
               <input
                 type={f.type ?? "text"}
@@ -124,10 +193,19 @@ export function CompanySettingsPanel() {
                     [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value,
                   }))
                 }
-                className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]"
+                className={inputClass}
               />
             </div>
           ))}
+          <div className="sm:col-span-2">
+            <div className="mb-1 text-[12px] text-[#64748B]">Address</div>
+            <textarea
+              rows={2}
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              className={`${inputClass} resize-none`}
+            />
+          </div>
         </div>
         <button
           type="button"
@@ -153,7 +231,7 @@ export function CompanySettingsPanel() {
           </button>
           <span className="text-[12px] text-[#64748B]">
             {lastBackup
-              ? `Last backup: ${new Date(lastBackup.created_at).toLocaleString()} — ${lastBackup.size_mb} MB (${lastBackup.file_label})`
+              ? `Last backup: ${new Date(lastBackup.created_at).toLocaleString()} — ${lastBackup.size_mb} MB`
               : "No backups recorded yet"}
           </span>
         </div>

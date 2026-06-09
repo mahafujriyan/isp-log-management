@@ -12,6 +12,7 @@ const QUICK_LINKS = [
   { href: PORTAL_ROUTES.operator.logs, title: "Log Stream", desc: "Live NAT/PPPoE entries from your tenant" },
   { href: PORTAL_ROUTES.operator.users, title: "User Manager", desc: "Team accounts and role assignments" },
   { href: PORTAL_ROUTES.operator.reports, title: "Analytics Reports", desc: "MikroTik metrics and dynamic charts" },
+  { href: PORTAL_ROUTES.operator.settings, title: "Account Settings", desc: "Company name, logo, contact & system prefs" },
   { href: PORTAL_ROUTES.operator.legacyDashboard, title: "Full Console", desc: "Complete dashboard with all admin tools" },
 ];
 
