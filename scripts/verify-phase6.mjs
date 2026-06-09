@@ -12,7 +12,7 @@ const root = join(__dirname, "..");
 const checks = [];
 function ok(name, pass, detail = "") {
   checks.push({ name, pass, detail });
-  console.log(pass ? "✓" : "✗", name, detail ? `— ${detail}` : "");
+
 }
 
 const files = [

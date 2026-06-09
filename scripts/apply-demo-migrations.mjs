@@ -47,7 +47,7 @@ async function main() {
     ssl: connectionString.includes("sslmode=require") ? { rejectUnauthorized: false } : undefined,
   });
 
-  console.log("Connecting to database...");
+
   await client.connect();
 
   try {
@@ -57,7 +57,7 @@ async function main() {
         console.warn(`Skipping missing migration: ${file}`);
         continue;
       }
-      console.log(`Applying ${file}...`);
+ 
       await client.query(fs.readFileSync(filePath, "utf8"));
     }
 
@@ -67,7 +67,7 @@ async function main() {
         WHERE table_schema = 'public' AND table_name = 'demo_requests'
       ) AS demo_requests_exists
     `);
-    console.log("✓ Demo migrations complete");
+ 
     console.log(`  demo_requests table: ${check.rows[0].demo_requests_exists ? "OK" : "MISSING"}`);
   } catch (error) {
     console.error("Migration failed:", error instanceof Error ? error.message : error);

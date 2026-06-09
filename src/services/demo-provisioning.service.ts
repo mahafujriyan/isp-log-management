@@ -8,6 +8,8 @@ import {
 } from "@/services/demo-request.service";
 import { upsertDemoUser } from "@/services/demo-user.service";
 
+const DEMO_SCHEMA = "tenant_demo";
+
 export async function getDemoSandboxTenant(): Promise<Tenant> {
   const existing = await db.getOne<Tenant>(
     `SELECT * FROM public.tenants WHERE is_demo_sandbox = TRUE LIMIT 1`

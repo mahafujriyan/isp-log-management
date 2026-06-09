@@ -23,7 +23,7 @@ export class Database {
     try {
       const result = await this.pool.query<T>(text, params);
       if (env.isDev) {
-        console.log("Executed query", { text, duration: Date.now() - start, rows: result.rowCount });
+       
       }
       return result;
     } catch (error) {
