@@ -6,25 +6,24 @@ interface LogsTableProps {
   compact?: boolean;
 }
 
+const thClass =
+  "sticky top-0 z-10 border-b border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1.5 text-left shadow-[0_1px_0_#E2E8F0]";
+
 export function LogsTable({ logs, compact = false }: LogsTableProps) {
   return (
-    <div className="dashboard-scroll max-h-[260px] overflow-y-auto rounded-lg border border-[#E2E8F0]">
-      <table className="w-full border-collapse text-[12px]">
-        <thead>
-          <tr className="bg-[#F8FAFC] text-[11px] font-medium text-[#64748B]">
-            <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">Time</th>
-            <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">PPPoE User</th>
-            <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">MAC</th>
-            <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">User IP</th>
-            {!compact && (
-              <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">Port</th>
-            )}
-            <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">NAT IP</th>
-            <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">Visited IP</th>
-            <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">Port</th>
-            {!compact && (
-              <th className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">Proto</th>
-            )}
+    <div className="dashboard-scroll max-h-[420px] overflow-auto rounded-lg border border-[#E2E8F0]">
+      <table className="w-full min-w-[720px] border-separate border-spacing-0 text-[12px]">
+        <thead className="text-[11px] font-medium text-[#64748B]">
+          <tr>
+            <th className={thClass}>Time</th>
+            <th className={thClass}>PPPoE User</th>
+            <th className={thClass}>MAC</th>
+            <th className={thClass}>User IP</th>
+            {!compact && <th className={thClass}>Port</th>}
+            <th className={thClass}>NAT IP</th>
+            <th className={thClass}>Visited IP</th>
+            <th className={thClass}>Port</th>
+            {!compact && <th className={thClass}>Proto</th>}
           </tr>
         </thead>
         <tbody>
