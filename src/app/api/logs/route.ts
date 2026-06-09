@@ -84,6 +84,22 @@ export async function POST(request: Request) {
           ],
     };
 
+    const first = payload.logs?.[0];
+    if (first?.raw_message && !first.pppoe_user && !first.user_ip) {
+      const { receiveSyslogBatch } = await import("@/services/syslog-ingest.service");
+      const batch = await receiveSyslogBatch(
+        (payload.logs ?? []).map((log) => ({
+          raw_message: log.raw_message ?? "",
+          tenant_id: payload.tenant_id,
+          schema: payload.schema,
+        }))
+      );
+      return NextResponse.json(
+        { inserted: batch.inserted, schema_name: payload.schema, mode: "parsed_syslog" },
+        { status: 201 }
+      );
+    }
+
     const result = await ingestLogs(payload);
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

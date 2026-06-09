@@ -114,6 +114,18 @@ export async function createTenantDevice(
   );
 
   if (!row) throw new Error("Failed to create device");
+
+  const tenant = await getTenantBySchema(schemaName);
+  if (tenant) {
+    const { syncDeviceAsRouter } = await import("@/lib/db/ingest");
+    await syncDeviceAsRouter(schemaName, tenant.id, {
+      name: row.name,
+      device_ip: row.device_ip,
+      nat_ip: row.nat_ip,
+      syslog_port: row.syslog_port,
+    }).catch(() => {});
+  }
+
   return mapDevice({ ...row, users_today: 0 });
 }
 

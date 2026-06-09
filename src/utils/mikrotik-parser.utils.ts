@@ -1,20 +1,17 @@
+import { parseMikroTikSyslog } from "@/lib/parser";
 import type { LogEntry } from "@/types/entities.types";
 import type { MikroTikLog, ParsedMetrics } from "@/types/metrics.types";
 
-function extractValue(log: string, key: string): string {
-  const match = log.match(new RegExp(`${key}=([^\\s,;]+)`, "i"));
-  return match ? match[1] : "";
-}
-
 export function parseMikroTikLog(rawLog: string): MikroTikLog {
+  const parsed = parseMikroTikSyslog(rawLog);
   return {
-    timestamp: new Date(),
-    pppoeUser: extractValue(rawLog, "pppoe_user") || extractValue(rawLog, "user"),
-    userIp: extractValue(rawLog, "user_ip") || extractValue(rawLog, "src"),
-    natIp: extractValue(rawLog, "nat_ip") || extractValue(rawLog, "public_ip"),
-    visitedIp: extractValue(rawLog, "visited_ip") || extractValue(rawLog, "dst"),
-    bandwidth: Number.parseInt(extractValue(rawLog, "bandwidth"), 10) || 0,
-    protocol: extractValue(rawLog, "protocol") || "TCP",
+    timestamp: parsed.timestamp,
+    pppoeUser: parsed.pppoe_user,
+    userIp: parsed.user_ip,
+    natIp: parsed.nat_ip,
+    visitedIp: parsed.visited_ip,
+    bandwidth: (parsed.user_port ?? 0) * 100 + (parsed.visited_port ?? 0),
+    protocol: parsed.protocol,
   };
 }
 

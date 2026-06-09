@@ -24,6 +24,8 @@
     "db:setup": "node scripts/setup-database.mjs",
     "db:demo": "node scripts/apply-demo-migrations.mjs",
     "db:company-branding": "node scripts/apply-company-branding.mjs",
+    "db:syslog": "node scripts/apply-mikrotik-syslog.mjs",
+    "syslog:listener": "tsx src/services/syslog-listener/run.ts",
     "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql",
     "db:phase8": "cd scripts && psql -U loguser -d isp_logserver -f phase8-migration.sql"
   },
@@ -39,6 +41,9 @@
     "next": "16.2.7",
     "next-auth": "^5.0.0-beta.31",
     "pg": "^8.21.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "syslog-server": "^1.0.1",
     "react": "19.2.4",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.4",
@@ -56,6 +61,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }

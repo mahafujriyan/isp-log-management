@@ -27,7 +27,7 @@ export function SearchLogPanel() {
       if (from) params.set("from", from);
       if (to) params.set("to", to);
 
-      const res = await fetch(`/api/logs?${params}`);
+      const res = await fetch(`/api/logs/search?${params}`);
       const data = await res.json();
       if (res.ok) {
         setResults(data.logs ?? []);

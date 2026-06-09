@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Device, LogEntry } from "@/types";
 import { LogsTable } from "@/components/dashboard/LogsTable";
+import { useLogSocket } from "@/components/log-stream";
 import { useTenantContext } from "@/hooks/useTenantContext";
 import { Loader2 } from "lucide-react";
 
@@ -18,6 +19,16 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<string>("");
+
+  const prependLog = useCallback((entry: LogEntry) => {
+    setLogs((prev) => {
+      const next = [entry, ...prev].slice(0, 200);
+      onStreamCount?.(next.length);
+      return next;
+    });
+  }, [onStreamCount]);
+
+  const { connected: socketLive, stats: socketStats } = useLogSocket(tenantId, prependLog);
 
   const loadLogs = useCallback(async () => {
     try {
@@ -91,12 +102,13 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
           onChange={(e) => setDate(e.target.value)}
           className="w-[140px] rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]"
         />
-        <div className="flex items-center gap-1.5 rounded-md bg-[#E8F5E9] px-2.5 py-1 text-[12px] font-medium text-[#2E7D32]">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#43A047] pulse-dot" />
-          {loading ? "Loading..." : "Live"}
+        <div className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium ${socketLive ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FFF8E1] text-[#F57F17]"}`}>
+          <span className={`inline-block h-1.5 w-1.5 rounded-full pulse-dot ${socketLive ? "bg-[#43A047]" : "bg-[#FFA000]"}`} />
+          {socketLive ? "Socket live" : loading ? "Loading..." : "Polling"}
         </div>
         <span className="ml-auto text-[12px] text-[#64748B]">
           {logs.length} rows {source ? `· ${source}` : ""}
+          {socketStats ? ` · ingested ${socketStats.processed}` : ""}
         </span>
         <button
           type="button"

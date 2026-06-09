@@ -68,9 +68,17 @@ export async function getTenantSyslogs(
 
 export async function insertTenantSyslog(
   schemaName: string,
-  entry: Omit<LogEntry, "id" | "time"> & { raw_message?: string }
+  entry: Omit<LogEntry, "id" | "time"> & {
+    raw_message?: string;
+    user_port?: number;
+    visited_port?: number;
+  }
 ): Promise<void> {
   const schema = assertValidTenantSchema(schemaName);
+  const userPort = entry.user_port ?? null;
+  const natPort = entry.nat_port ?? null;
+  const visitedPort = entry.visited_port ?? entry.port ?? null;
+
   await db.query(
     `INSERT INTO "${schema}".syslogs
       (pppoe_user, mac_address, user_ip, user_port, nat_ip, nat_port, visited_ip, visited_port, protocol, raw_message)
@@ -79,11 +87,11 @@ export async function insertTenantSyslog(
       entry.pppoe_user,
       entry.mac,
       entry.user_ip,
-      entry.nat_port ?? null,
+      userPort,
       entry.nat_ip,
-      entry.port,
+      natPort,
       entry.visited_ip,
-      entry.port,
+      visitedPort,
       entry.protocol ?? "TCP",
       entry.raw_message ?? null,
     ]
@@ -171,7 +179,11 @@ export async function countTenantSyslogs(schemaName: string): Promise<number> {
 
 function normalizeIngestEntry(
   raw: NonNullable<IngestLogsInput["logs"]>[number]
-): Omit<LogEntry, "id" | "time"> & { raw_message?: string } {
+): Omit<LogEntry, "id" | "time"> & {
+  raw_message?: string;
+  user_port?: number;
+  visited_port?: number;
+} {
   return {
     pppoe_user: raw.pppoe_user ?? "",
     mac: raw.mac ?? raw.mac_address ?? "",
@@ -179,7 +191,9 @@ function normalizeIngestEntry(
     nat_ip: raw.nat_ip ?? "",
     visited_ip: raw.visited_ip ?? "",
     port: raw.port ?? raw.visited_port ?? 0,
-    nat_port: raw.nat_port ?? raw.user_port,
+    user_port: raw.user_port ?? undefined,
+    nat_port: raw.nat_port ?? undefined,
+    visited_port: raw.visited_port ?? raw.port ?? undefined,
     protocol: raw.protocol,
     raw_message: raw.raw_message,
   };

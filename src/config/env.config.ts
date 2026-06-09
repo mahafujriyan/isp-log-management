@@ -38,6 +38,13 @@ export const env = {
     secret: process.env.INGEST_SECRET ?? process.env.CRON_SECRET ?? "",
   },
 
+  syslog: {
+    udpPort: Number(process.env.SYSLOG_UDP_PORT ?? 514),
+    socketPort: Number(process.env.SOCKET_PORT ?? 3001),
+    logFile: process.env.SYSLOG_FILE ?? "/var/log/mikrotik/isp-syslog.log",
+    defaultTenantSchema: process.env.DEFAULT_TENANT_SCHEMA ?? "tenant_001",
+  },
+
   imgbb: {
     apiKey: process.env.IMGBB_API_KEY ?? "",
   },
