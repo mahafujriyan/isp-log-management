@@ -25,6 +25,7 @@
     "db:demo": "node scripts/apply-demo-migrations.mjs",
     "db:company-branding": "node scripts/apply-company-branding.mjs",
     "db:syslog": "node scripts/apply-mikrotik-syslog.mjs",
+    "db:register-sfp1": "node scripts/apply-register-sfp1.mjs",
     "syslog:listener": "tsx src/services/syslog-listener/run.ts",
     "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql",
     "db:phase8": "cd scripts && psql -U loguser -d isp_logserver -f phase8-migration.sql"

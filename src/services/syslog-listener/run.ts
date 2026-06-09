@@ -100,23 +100,28 @@ io.on("connection", (socket) => {
 });
 
 function startUdpListener() {
-  const server = SyslogServer.createServer();
+  const server = new SyslogServer();
 
-  server.on("message", (msg: { message: string; remote?: { address?: string } }) => {
-    const routerIp = msg.remote?.address;
-    void handleRawMessage(msg.message, routerIp);
+  server.on("message", (msg: { message: string; host?: string }) => {
+    void handleRawMessage(msg.message, msg.host);
   });
 
-  server.on("error", (err: Error) => {
-    if ((err as NodeJS.ErrnoException).code === "EACCES") {
-      console.error(`Cannot bind UDP ${UDP_PORT} — run with sudo or use port >= 1024 (SYSLOG_UDP_PORT=5514)`);
+  server.on("error", (err: Error & { code?: string }) => {
+    if (err.code === "EACCES") {
+      console.error(`Cannot bind UDP ${UDP_PORT} — use SYSLOG_UDP_PORT=5514 on Windows/local dev`);
     } else {
       console.error("[syslog] UDP error:", err);
     }
   });
 
-  server.start({ port: UDP_PORT, host: "0.0.0.0" });
-  console.log(`[syslog] UDP listener on 0.0.0.0:${UDP_PORT}`);
+  server.on("start", () => {
+    console.log(`[syslog] UDP listener on 0.0.0.0:${UDP_PORT}`);
+  });
+
+  server.start({ port: UDP_PORT, address: "0.0.0.0" }).catch((err: Error) => {
+    console.error("[syslog] UDP bind failed:", err.message);
+    console.error("Tip: set SYSLOG_UDP_PORT=5514 in .env.local for local Windows dev");
+  });
 }
 
 function tailLogFile() {

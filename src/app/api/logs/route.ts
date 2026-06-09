@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const limit = parsePositiveInt(searchParams.get("limit"), 100, 500);
   const user = searchParams.get("user") ?? undefined;
   const mac = searchParams.get("mac") ?? undefined;
+  const natIp = searchParams.get("nat_ip") ?? searchParams.get("device") ?? undefined;
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   const schema = searchParams.get("schema") ?? undefined;
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
       to,
       user,
       mac,
+      nat_ip: natIp,
     });
 
     const format = searchParams.get("format");

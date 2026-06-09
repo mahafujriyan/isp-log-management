@@ -11,12 +11,14 @@ interface LogStreamPanelProps {
   onStreamCount?: (count: number) => void;
 }
 
+type TimeRange = "1h" | "24h" | "7d" | "all";
+
 export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   const { tenantId, tenants, setTenantId, isDemo } = useTenantContext();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [range, setRange] = useState<TimeRange>("7d");
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<string>("");
 
@@ -28,19 +30,24 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
     });
   }, [onStreamCount]);
 
-  const { connected: socketLive, stats: socketStats } = useLogSocket(tenantId, prependLog);
+  const { connected: socketLive, stats: socketStats, error: socketError } = useLogSocket(tenantId, prependLog);
 
   const loadLogs = useCallback(async () => {
     try {
-      const from = `${date}T00:00:00.000Z`;
-      const to = `${date}T23:59:59.999Z`;
       const params = new URLSearchParams({
         tenant_id: String(tenantId),
         limit: "150",
-        from,
-        to,
       });
-      if (deviceFilter) params.set("user", deviceFilter);
+
+      if (range !== "all") {
+        const hours = range === "1h" ? 1 : range === "24h" ? 24 : 24 * 7;
+        const from = new Date(Date.now() - hours * 3600_000).toISOString();
+        const to = new Date().toISOString();
+        params.set("from", from);
+        params.set("to", to);
+      }
+
+      if (deviceFilter) params.set("nat_ip", deviceFilter);
 
       const res = await fetch(`/api/logs?${params}`);
       const data = await res.json();
@@ -54,7 +61,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, date, deviceFilter, onStreamCount]);
+  }, [tenantId, range, deviceFilter, onStreamCount]);
 
   useEffect(() => {
     fetch(`/api/devices?tenant_id=${tenantId}`)
@@ -66,9 +73,10 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   useEffect(() => {
     setLoading(true);
     loadLogs();
-    const interval = setInterval(loadLogs, 4000);
+    const ms = socketLive ? 15000 : 4000;
+    const interval = setInterval(loadLogs, ms);
     return () => clearInterval(interval);
-  }, [loadLogs]);
+  }, [loadLogs, socketLive]);
 
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
@@ -96,20 +104,34 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
             </option>
           ))}
         </select>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-[140px] rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]"
-        />
-        <div className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium ${socketLive ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FFF8E1] text-[#F57F17]"}`}>
+        <select
+          value={range}
+          onChange={(e) => setRange(e.target.value as TimeRange)}
+          className="rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]"
+        >
+          <option value="1h">Last 1 hour</option>
+          <option value="24h">Last 24 hours</option>
+          <option value="7d">Last 7 days</option>
+          <option value="all">All time</option>
+        </select>
+        <div
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium ${socketLive ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FFF8E1] text-[#F57F17]"}`}
+          title={socketError ?? (socketLive ? "Real-time via Socket.IO" : "Syslog listener not running")}
+        >
           <span className={`inline-block h-1.5 w-1.5 rounded-full pulse-dot ${socketLive ? "bg-[#43A047]" : "bg-[#FFA000]"}`} />
-          {socketLive ? "Socket live" : loading ? "Loading..." : "Polling"}
+          {socketLive ? "Live" : loading ? "Loading..." : "Polling (4s)"}
         </div>
         <span className="ml-auto text-[12px] text-[#64748B]">
           {logs.length} rows {source ? `· ${source}` : ""}
           {socketStats ? ` · ingested ${socketStats.processed}` : ""}
         </span>
+        <button
+          type="button"
+          onClick={loadLogs}
+          className="rounded-md border border-[#E2E8F0] px-3 py-1.5 text-[12px] text-[#64748B] hover:bg-[#F8FAFC]"
+        >
+          Refresh
+        </button>
         <button
           type="button"
           onClick={() => { setLogs([]); onStreamCount?.(0); }}
@@ -120,6 +142,14 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
       </div>
       {loading && logs.length === 0 ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-[#1565C0]" size={24} /></div>
+      ) : logs.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] px-4 py-10 text-center text-[13px] text-[#64748B]">
+          <p className="font-medium text-[#334155]">No logs in this period</p>
+          <p className="mt-1">Try <strong>Last 7 days</strong> or <strong>All time</strong>. MikroTik must send syslog to this server.</p>
+          {socketLive && (socketStats?.processed ?? 0) === 0 && (
+            <p className="mt-2 text-[12px] text-[#F57F17]">Socket is live but 0 logs ingested — send a test via API or configure MikroTik syslog.</p>
+          )}
+        </div>
       ) : (
         <LogsTable logs={logs} />
       )}

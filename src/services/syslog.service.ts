@@ -15,6 +15,7 @@ interface SyslogQueryOptions {
   to?: string;
   user?: string;
   mac?: string;
+  nat_ip?: string;
 }
 
 function buildSyslogSelect(schema: string, options: SyslogQueryOptions): { sql: string; params: unknown[] } {
@@ -40,7 +41,11 @@ function buildSyslogSelect(schema: string, options: SyslogQueryOptions): { sql: 
   }
   if (options.user) {
     params.push(`%${options.user}%`);
-    sql += ` AND (LOWER(pppoe_user) LIKE LOWER($${params.length}) OR host(user_ip) LIKE $${params.length} OR host(visited_ip) LIKE $${params.length})`;
+    sql += ` AND (LOWER(pppoe_user) LIKE LOWER($${params.length}) OR host(user_ip) LIKE $${params.length} OR host(visited_ip) LIKE $${params.length} OR host(nat_ip) LIKE $${params.length})`;
+  }
+  if (options.nat_ip) {
+    params.push(options.nat_ip);
+    sql += ` AND host(nat_ip) = $${params.length}`;
   }
   if (options.mac) {
     params.push(`%${options.mac.replace(/[:-]/g, "")}%`);
@@ -134,6 +139,7 @@ export async function resolveLogsQuery(params: {
   to?: string;
   user?: string;
   mac?: string;
+  nat_ip?: string;
 }): Promise<{ logs: LogEntry[]; source: "tenant" | "all" | "mock"; schema_name?: string }> {
   const options: SyslogQueryOptions = {
     limit: params.limit,
@@ -141,6 +147,7 @@ export async function resolveLogsQuery(params: {
     to: params.to,
     user: params.user,
     mac: params.mac,
+    nat_ip: params.nat_ip,
   };
 
   if (params.tenant_id) {

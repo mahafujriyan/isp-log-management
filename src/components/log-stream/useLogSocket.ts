@@ -33,15 +33,21 @@ function payloadToLogEntry(p: SocketLogPayload): LogEntry {
 
 export function useLogSocket(tenantId: number, onLog?: (entry: LogEntry) => void) {
   const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<{ processed: number; errors: number } | null>(null);
   const socketRef = useRef<ReturnType<typeof import("socket.io-client").io> | null>(null);
+  const onLogRef = useRef(onLog);
+  onLogRef.current = onLog;
 
   useEffect(() => {
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL ??
       (typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:3001` : "");
 
-    if (!socketUrl) return;
+    if (!socketUrl) {
+      setError("Socket URL not configured");
+      return;
+    }
 
     let active = true;
 
@@ -51,20 +57,27 @@ export function useLogSocket(tenantId: number, onLog?: (entry: LogEntry) => void
       const socket = io(socketUrl, {
         path: "/socket.io",
         transports: ["websocket", "polling"],
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 2000,
       });
 
       socketRef.current = socket;
 
       socket.on("connect", () => {
         setConnected(true);
+        setError(null);
         socket.emit("subscribe", { tenant_id: tenantId });
       });
 
       socket.on("disconnect", () => setConnected(false));
 
+      socket.on("connect_error", (err: Error) => {
+        setConnected(false);
+        setError(err.message || "Socket server unreachable");
+      });
+
       socket.on("log:new", (payload: SocketLogPayload) => {
-        onLog?.(payloadToLogEntry(payload));
+        onLogRef.current?.(payloadToLogEntry(payload));
       });
 
       socket.on("log:stats", (s: { processed: number; errors: number }) => {
@@ -77,7 +90,7 @@ export function useLogSocket(tenantId: number, onLog?: (entry: LogEntry) => void
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
-  }, [tenantId, onLog]);
+  }, [tenantId]);
 
-  return { connected, stats };
+  return { connected, stats, error };
 }

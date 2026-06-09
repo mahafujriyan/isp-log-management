@@ -1,14 +1,27 @@
 declare module "syslog-server" {
+  import { EventEmitter } from "events";
+
   interface SyslogMessage {
+    date: Date;
+    host: string;
     message: string;
-    remote?: { address?: string; port?: number };
+    protocol: string;
   }
 
-  interface SyslogServerInstance {
-    on(event: "message", handler: (msg: SyslogMessage) => void): void;
-    on(event: "error", handler: (err: Error) => void): void;
-    start(options?: { port?: number; host?: string }): void;
+  interface SyslogStartOptions {
+    port?: number;
+    address?: string;
+    exclusive?: boolean;
   }
 
-  export function createServer(): SyslogServerInstance;
+  class SyslogServer extends EventEmitter {
+    start(options?: SyslogStartOptions, callback?: (err?: unknown) => void): Promise<void>;
+    stop(callback?: (err?: unknown) => void): Promise<void>;
+    isRunning(): boolean;
+    on(event: "message", handler: (msg: SyslogMessage) => void): this;
+    on(event: "start" | "stop", handler: () => void): this;
+    on(event: "error", handler: (err: Error) => void): this;
+  }
+
+  export = SyslogServer;
 }
