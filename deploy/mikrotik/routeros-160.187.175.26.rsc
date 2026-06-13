@@ -3,9 +3,9 @@
 # MAC: 48:A9:8A:C2:28:BF
 #
 # CHANGE logServer to your Ubuntu log server IP (where isp-syslog-listener runs)
-# Company default in DB: 160.187.175.62
+# Company default in DB: 160.187.175.30
 
-:local logServer "160.187.175.62"
+:local logServer "160.187.175.30"
 :local logPort 514
 
 /system identity set name="CLC-SFP1-NAT"

@@ -24,5 +24,5 @@ ON CONFLICT (router_ip) DO UPDATE SET
   updated_at = NOW();
 
 UPDATE public.company_settings
-SET server_ip = '160.187.175.62', updated_at = NOW()
+SET server_ip = '160.187.175.30', updated_at = NOW()
 WHERE tenant_id = (SELECT id FROM public.tenants WHERE schema_name = 'tenant_001' LIMIT 1);

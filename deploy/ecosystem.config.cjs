@@ -1,19 +1,22 @@
 /**
- * PM2 process manager config (PHASE 7 self-hosted)
+ * PM2 — VPS production (Next.js + Syslog listener)
  *
- * Usage (from project root):
+ *   cp deploy/env.vps.example .env.production.local   # edit secrets
  *   npm run build
- *   pm2 start deploy/ecosystem.config.cjs
- *   pm2 save
- *   pm2 startup
+ *   npm run pm2:start
+ *   pm2 save && pm2 startup
  */
 const path = require("path");
+const loadProductionEnv = require("./load-env.cjs");
+
+const root = path.join(__dirname, "..");
+const env = loadProductionEnv();
 
 module.exports = {
   apps: [
     {
       name: "isp-logserver",
-      cwd: path.join(__dirname, ".."),
+      cwd: root,
       script: "npm",
       args: "run start",
       instances: 1,
@@ -21,13 +24,13 @@ module.exports = {
       autorestart: true,
       max_memory_restart: "512M",
       env: {
-        NODE_ENV: "production",
-        PORT: 3000,
+        ...env,
+        PORT: env.PORT || "3000",
       },
     },
     {
       name: "isp-syslog-listener",
-      cwd: path.join(__dirname, ".."),
+      cwd: root,
       script: "npx",
       args: "tsx src/services/syslog-listener/run.ts",
       instances: 1,
@@ -35,10 +38,10 @@ module.exports = {
       autorestart: true,
       max_memory_restart: "256M",
       env: {
-        NODE_ENV: "production",
-        SYSLOG_UDP_PORT: 514,
-        SOCKET_PORT: 3001,
-        SYSLOG_FILE: "/var/log/mikrotik/isp-syslog.log",
+        ...env,
+        SYSLOG_UDP_PORT: env.SYSLOG_UDP_PORT || "514",
+        SOCKET_PORT: env.SOCKET_PORT || "3001",
+        SYSLOG_FILE: env.SYSLOG_FILE || "/var/log/mikrotik/isp-syslog.log",
       },
     },
   ],

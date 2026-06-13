@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.db_backups (
 );
 
 INSERT INTO public.company_settings (tenant_id, company_name, server_ip, alert_email, log_retention_days)
-SELECT t.id, 'Cyber Link Communication', '160.187.175.62', 'admin@cyberlink.com', 90
+SELECT t.id, 'Cyber Link Communication', '160.187.175.30', 'admin@cyberlink.com', 90
 FROM public.tenants t
 WHERE t.schema_name = 'tenant_001'
 ON CONFLICT (tenant_id) DO NOTHING;

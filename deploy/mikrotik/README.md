@@ -1,48 +1,45 @@
-# MikroTik Syslog Setup
+# MikroTik → VPS Log Flow (Production)
 
-## 1. Ubuntu log server (rsyslog)
+## IPs
+| Role | IP |
+|------|-----|
+| Log VPS (Ubuntu) | 160.187.175.30 |
+| MikroTik SFP1 WAN | 160.187.175.26 |
 
+## MikroTik — import clc-production.rsc
+Winbox → Files → upload `clc-production.rsc` → Terminal:
+```
+/import file-name=clc-production.rsc
+```
+
+## VPS — quick deploy
 ```bash
-sudo apt install rsyslog -y
-sudo mkdir -p /var/log/mikrotik
-sudo chown syslog:adm /var/log/mikrotik
-sudo cp deploy/rsyslog/mikrotik.conf /etc/rsyslog.d/50-mikrotik.conf
-sudo ufw allow 514/udp
-sudo systemctl restart rsyslog
-sudo systemctl status rsyslog
+git clone YOUR_REPO /opt/isp-log-management
+cd /opt/isp-log-management
+cp deploy/env.vps.example .env.production.local
+# edit DATABASE_URL, AUTH_SECRET, INGEST_SECRET
+
+npm ci && npm run build
+npm run db:vps
+npm run pm2:start
+sudo bash deploy/vps-setup.sh   # nginx + rsyslog + firewall (first time)
 ```
 
-## 2. ISP Log Management listener (PM2)
-
+## Test log
 ```bash
-npm install
-npm run db:syslog
-npm run build
-pm2 start deploy/ecosystem.config.cjs
+npm run test:log-ingest
+```
+Dashboard → Logs → Last 7 days → tenant_001
+
+## Log format (parser accepts)
+```
+pppoe_user=username@isp
+mac_address=AA:BB:CC:DD:EE:FF
+user_ip=10.x.x.x
+nat_ip=160.187.175.26
+src-address=10.x.x.x:51234
+dst-address=8.8.8.8:53
+protocol=udp|tcp
 ```
 
-## 3. MikroTik RouterOS
-
-1. Edit `deploy/mikrotik/routeros-syslog.rsc` — set `LOG_SERVER_IP` to your server IP.
-2. Upload and import on each NAT router:
-
-```
-/import file-name=routeros-syslog.rsc
-```
-
-## 4. Register router in dashboard
-
-Add device with router LAN/management IP matching syslog source IP, or let auto-discovery create a router on first packet.
-
-## 5. Verify
-
-```bash
-# On server — watch live file
-tail -f /var/log/mikrotik/isp-syslog.log
-
-# API test
-curl -X POST http://localhost:3000/api/logs/receive \
-  -H "Content-Type: text/plain" \
-  -H "x-ingest-secret: YOUR_INGEST_SECRET" \
-  -d '<30>Jun  8 10:00:01 MK-NAT firewall,info FWD: pppoe_user=clc05@isp mac_address=AA:BB:CC:DD:EE:FF user_ip=10.10.1.5 nat_ip=103.1.2.3 src-address=10.10.1.5:51234 dst-address=8.8.8.8:53 protocol=udp'
-```
+MikroTik firewall log-prefix `FWD:` and `NAT:` also supported.

@@ -40,9 +40,13 @@ export function useLogSocket(tenantId: number, onLog?: (entry: LogEntry) => void
   onLogRef.current = onLog;
 
   useEffect(() => {
+    const explicit = process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
     const socketUrl =
-      process.env.NEXT_PUBLIC_SOCKET_URL ??
-      (typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:3001` : "");
+      explicit && explicit !== "same-origin"
+        ? explicit
+        : typeof window !== "undefined"
+          ? window.location.origin
+          : "";
 
     if (!socketUrl) {
       setError("Socket URL not configured");

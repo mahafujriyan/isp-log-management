@@ -40,6 +40,7 @@ function loadEnvFile(filePath: string) {
   }
 }
 
+loadEnvFile(path.join(root, ".env.production.local"));
 loadEnvFile(path.join(root, ".env.local"));
 loadEnvFile(path.join(root, ".env"));
 

@@ -35,6 +35,8 @@ Open http://localhost:3000 → Login → Dashboard
 
 | Doc | Description |
 |-----|-------------|
+| [VPS Hosting Guide](deploy/VPS-HOSTING.md) | Step-by-step VPS deploy — all inputs filled |
+| [Development Guide](DEVELOPMENT.md) | Local dev, VPS deploy, MikroTik syslog, env vars |
 | [Project Structure](docs/PROJECT_STRUCTURE.md) | Premium folder architecture & import aliases |
 | [PHASE 1 Complete](docs/PHASE_1.md) | Full PHASE 1 checklist & steps |
 | [Code Reference](docs/CODE_REFERENCE.md) | All files & API routes |

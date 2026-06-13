@@ -355,7 +355,7 @@ export function OperatorAccountSettings() {
                 <input
                   value={form.server_ip}
                   onChange={(e) => update({ server_ip: e.target.value })}
-                  placeholder="160.187.175.62"
+                  placeholder="160.187.175.30"
                   className={inputClass}
                 />
               </label>
