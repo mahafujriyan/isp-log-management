@@ -94,6 +94,9 @@ export interface CreateDeviceInput {
   syslog_user?: string;
   syslog_port?: number;
   listen_port?: number;
+  api_user?: string;
+  api_password?: string;
+  api_port?: number;
 }
 
 export interface IngestLogsInput {

@@ -35,6 +35,9 @@ export async function PATCH(
       syslog_user: body.syslog_user ?? body.user,
       syslog_port: body.syslog_port ?? body.port,
       listen_port: body.listen_port,
+      api_user: body.api_user ?? body.username,
+      api_password: body.api_password ?? body.password,
+      api_port: body.api_port != null ? Number(body.api_port) : undefined,
       status: body.status,
     });
 

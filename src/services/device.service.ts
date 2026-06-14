@@ -97,8 +97,9 @@ export async function createTenantDevice(
 
   const row = await db.getOne<DeviceRow>(
     `INSERT INTO "${schema}".devices
-      (name, device_ip, config_type, nat_ip, syslog_user, syslog_port, listen_port, status)
-     VALUES ($1, $2::inet, $3, $4::inet, $5, $6, $7, 'active')
+      (name, device_ip, config_type, nat_ip, syslog_user, syslog_port, listen_port,
+       api_user, api_password, api_port, status)
+     VALUES ($1, $2::inet, $3, $4::inet, $5, $6, $7, $8, $9, $10, 'active')
      RETURNING id, name, host(device_ip) AS device_ip, config_type,
                host(nat_ip) AS nat_ip, syslog_user, syslog_port, listen_port,
                status, last_seen_at, created_at`,
@@ -107,9 +108,12 @@ export async function createTenantDevice(
       input.device_ip.trim(),
       input.config_type ?? "NAT",
       input.nat_ip?.trim() ?? input.device_ip.trim(),
-      input.syslog_user ?? "log",
+      input.syslog_user ?? input.api_user ?? "admin",
       input.syslog_port ?? 514,
       input.listen_port ?? 514,
+      input.api_user?.trim() || null,
+      input.api_password?.trim() || null,
+      input.api_port ?? 8728,
     ]
   );
 
@@ -145,7 +149,10 @@ export async function updateTenantDevice(
        syslog_user = COALESCE($6, syslog_user),
        syslog_port = COALESCE($7, syslog_port),
        listen_port = COALESCE($8, listen_port),
-       status = COALESCE($9, status)
+       api_user = COALESCE($9, api_user),
+       api_password = COALESCE($10, api_password),
+       api_port = COALESCE($11, api_port),
+       status = COALESCE($12, status)
      WHERE id = $1
      RETURNING id, name, host(device_ip) AS device_ip, config_type,
                host(nat_ip) AS nat_ip, syslog_user, syslog_port, listen_port,
@@ -159,6 +166,9 @@ export async function updateTenantDevice(
       input.syslog_user,
       input.syslog_port,
       input.listen_port,
+      input.api_user?.trim() || null,
+      input.api_password?.trim() || null,
+      input.api_port,
       input.status,
     ]
   );

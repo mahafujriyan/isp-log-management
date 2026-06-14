@@ -27,7 +27,11 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
     user: "log",
     port: 514,
     listen_port: 514,
+    api_user: "admin",
+    api_password: "",
+    api_port: 8728,
   });
+  const [logServerIp, setLogServerIp] = useState("");
 
   const label = variant === "servers" ? "Server" : "Device";
   const plural = variant === "servers" ? "servers" : "devices";
@@ -51,6 +55,22 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
     loadDevices();
   }, [loadDevices]);
 
+  useEffect(() => {
+    if (variant !== "servers") return;
+    fetch(`/api/company?tenant_id=${tenantId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const ip = d.settings?.server_ip?.trim();
+        if (ip) setLogServerIp(ip);
+        else if (typeof window !== "undefined") {
+          setLogServerIp(window.location.hostname);
+        }
+      })
+      .catch(() => {
+        if (typeof window !== "undefined") setLogServerIp(window.location.hostname);
+      });
+  }, [tenantId, variant]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return devices;
@@ -64,7 +84,18 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: "", ip: "", config: "NAT", nat_ip: "", user: "log", port: 514, listen_port: 514 });
+    setForm({
+      name: "",
+      ip: "",
+      config: "NAT",
+      nat_ip: "",
+      user: "log",
+      port: 514,
+      listen_port: 514,
+      api_user: "admin",
+      api_password: "",
+      api_port: 8728,
+    });
     setShowForm(true);
   }
 
@@ -78,6 +109,9 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
       user: device.user,
       port: device.port,
       listen_port: device.listen_port,
+      api_user: device.user || "admin",
+      api_password: "",
+      api_port: 8728,
     });
     setShowForm(true);
   }
@@ -93,9 +127,12 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
         device_ip: form.ip,
         config_type: form.config,
         nat_ip: form.nat_ip || form.ip,
-        syslog_user: form.user,
+        syslog_user: form.user || form.api_user,
         syslog_port: form.port,
         listen_port: form.listen_port,
+        api_user: form.api_user.trim() || undefined,
+        api_password: form.api_password.trim() || undefined,
+        api_port: form.api_port,
       };
 
       const res = await fetch(editing ? `/api/devices/${editing.id}` : "/api/devices", {
@@ -222,38 +259,50 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setShowForm(false)} aria-label="Close" />
-          <form onSubmit={handleSubmit} className="relative w-full max-w-md rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-xl">
+          <form onSubmit={handleSubmit} className="relative w-full max-w-lg rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-[15px] font-semibold">{editing ? `Edit ${label}` : `Add ${label}`}</h3>
               <button type="button" onClick={() => setShowForm(false)}><X size={18} /></button>
             </div>
+
+            {variant === "servers" && (
+              <p className="mb-3 rounded-lg bg-[#EFF6FF] px-3 py-2 text-[11px] leading-relaxed text-[#1E40AF]">
+                Password is <strong>optional</strong> — leave empty to add syslog-only device.
+                MikroTik remote syslog: <strong>{logServerIp || "160.187.175.30"}:514</strong> (no password needed).
+              </p>
+            )}
+
             <div className="grid grid-cols-2 gap-3 text-[12px]">
+              {variant === "servers" && (
+                <label className="col-span-2">
+                  <span className="mb-1 block text-[#64748B]">Website / Log server IP</span>
+                  <input
+                    type="text"
+                    readOnly
+                    value={logServerIp || "160.187.175.30"}
+                    className="w-full rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1.5 text-[#64748B]"
+                  />
+                </label>
+              )}
               {[
-                { key: "name", label: "Name", col: 2 },
+                { key: "name", label: variant === "servers" ? "Server name" : "Name", col: 2 },
                 { key: "ip", label: "Device IP" },
                 { key: "nat_ip", label: "NAT IP" },
-                { key: "user", label: "Syslog user" },
-                { key: "port", label: "Port", type: "number" },
-                { key: "listen_port", label: "Listen port", type: "number" },
               ].map((f) => (
                 <label key={f.key} className={f.col === 2 ? "col-span-2" : ""}>
                   <span className="mb-1 block text-[#64748B]">{f.label}</span>
                   <input
-                    type={f.type ?? "text"}
+                    type="text"
                     value={String(form[f.key as keyof typeof form])}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
                     required={f.key === "name" || f.key === "ip"}
+                    placeholder={f.key === "ip" ? "160.187.175.26" : undefined}
                     className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
                   />
                 </label>
               ))}
               <label>
-                <span className="mb-1 block text-[#64748B]">Config</span>
+                <span className="mb-1 block text-[#64748B]">Configuration type</span>
                 <select
                   value={form.config}
                   onChange={(e) => setForm((p) => ({ ...p, config: e.target.value as "NAT" | "ACCESS" }))}
@@ -263,6 +312,67 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
                   <option value="ACCESS">ACCESS</option>
                 </select>
               </label>
+              <label>
+                <span className="mb-1 block text-[#64748B]">Listening port</span>
+                <input
+                  type="number"
+                  value={form.listen_port}
+                  onChange={(e) => setForm((p) => ({ ...p, listen_port: Number(e.target.value) }))}
+                  className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                />
+              </label>
+              {variant === "servers" ? (
+                <>
+                  <label>
+                    <span className="mb-1 block text-[#64748B]">User name</span>
+                    <input
+                      value={form.api_user}
+                      onChange={(e) => setForm((p) => ({ ...p, api_user: e.target.value }))}
+                      placeholder="admin"
+                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-[#64748B]">Password (optional)</span>
+                    <input
+                      type="password"
+                      value={form.api_password}
+                      onChange={(e) => setForm((p) => ({ ...p, api_password: e.target.value }))}
+                      placeholder="Leave empty or use e.g. admin123"
+                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-[#64748B]">API port</span>
+                    <input
+                      type="number"
+                      value={form.api_port}
+                      onChange={(e) => setForm((p) => ({ ...p, api_port: Number(e.target.value) }))}
+                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label>
+                    <span className="mb-1 block text-[#64748B]">Syslog user</span>
+                    <input
+                      value={form.user}
+                      onChange={(e) => setForm((p) => ({ ...p, user: e.target.value }))}
+                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-[#64748B]">Port</span>
+                    <input
+                      type="number"
+                      value={form.port}
+                      onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))}
+                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                    />
+                  </label>
+                </>
+              )}
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" onClick={() => setShowForm(false)} className="rounded-md border px-3 py-1.5 text-[12px]">Cancel</button>

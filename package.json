@@ -25,6 +25,7 @@
     "pm2:logs": "pm2 logs",
     "test:log-ingest": "node scripts/test-log-ingest.mjs",
     "db:vps": "node scripts/apply-mikrotik-syslog.mjs && node scripts/apply-register-sfp1.mjs",
+    "db:device-credentials": "node scripts/apply-device-credentials.mjs",
     "db:init": "cd scripts && psql -U loguser -d isp_logserver -f init-db.sql",
     "db:setup": "node scripts/setup-database.mjs",
     "db:demo": "node scripts/apply-demo-migrations.mjs",
