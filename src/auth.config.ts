@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import { AUTH_CONFIG } from "@/config/auth.config";
+import { env } from "@/config/env.config";
 import type { AuthUser } from "@/types/auth.types";
 
 export const nextAuthConfig = {
@@ -7,6 +8,31 @@ export const nextAuthConfig = {
     signIn: AUTH_CONFIG.pages.signIn,
   },
   session: AUTH_CONFIG.session,
+  cookies: {
+    sessionToken: {
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: env.auth.cookieSecure,
+      },
+    },
+    callbackUrl: {
+      options: {
+        sameSite: "lax" as const,
+        path: "/",
+        secure: env.auth.cookieSecure,
+      },
+    },
+    csrfToken: {
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: env.auth.cookieSecure,
+      },
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

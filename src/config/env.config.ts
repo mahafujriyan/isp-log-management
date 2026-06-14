@@ -17,6 +17,13 @@ export const env = {
     url: process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000",
     sessionMaxAge: 60 * 60 * 8,
     superAdminCode: process.env.SUPER_ADMIN_SECURITY_CODE ?? "CYBER-LINK-2026",
+    /** HTTP VPS (no SSL): set AUTH_COOKIE_SECURE=false in .env.production.local */
+    cookieSecure:
+      process.env.AUTH_COOKIE_SECURE === "true"
+        ? true
+        : process.env.AUTH_COOKIE_SECURE === "false"
+          ? false
+          : (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "").startsWith("https://"),
   },
 
   btrc: {

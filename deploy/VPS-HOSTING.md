@@ -324,7 +324,8 @@ npm run pm2:restart
 | সমস্যা | সমাধান |
 |--------|---------|
 | Site open হয় না | `pm2 status` + `sudo systemctl status nginx` |
-| Login হয় না | `.env` এ `AUTH_URL=http://160.187.175.30` + `npm run build` + restart |
+| Login হয় না / logout কাজ করে না | `AUTH_COOKIE_SECURE=false` + browser cookie clear + `npm run build` + restart |
+| Admin panel যায় না | Super admin: http://160.187.175.30/admin/login |
 | Live কিন্তু log নেই | MikroTik → `160.187.175.30:514` check |
 | UDP bind error | `sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))` |
 | Empty table | Filter → **Last 7 days** |
