@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@isp/core": ["../../packages/core/src/index.ts"],
+      "@isp/core/*": ["../../packages/core/src/*"],
+      "@isp/auth": ["../../packages/auth/src/index.ts"],
+      "@isp/auth/*": ["../../packages/auth/src/*"],
+      "@isp/ui": ["../../packages/ui/src/index.ts"],
+      "@isp/ui/*": ["../../packages/ui/src/*"],
+      "@isp/features/*": ["../../packages/features/src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "next-auth.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

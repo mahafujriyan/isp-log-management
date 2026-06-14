@@ -1,0 +1,15 @@
+{
+  "name": "@isp/syslog-listener",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/run.ts",
+    "dev": "tsx watch src/run.ts"
+  },
+  "dependencies": {
+    "@isp/core": "*",
+    "socket.io": "^4.8.1",
+    "syslog-server": "^1.0.1"
+  }
+}

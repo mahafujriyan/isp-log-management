@@ -1,0 +1,28 @@
+{
+  "name": "@isp/features",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./logs": "./src/logs/index.ts",
+    "./devices": "./src/devices/index.ts",
+    "./tenants": "./src/tenants/index.ts",
+    "./billing": "./src/billing/index.ts",
+    "./metrics": "./src/metrics/index.ts",
+    "./demo-requests": "./src/demo-requests/index.ts",
+    "./marketing": "./src/marketing/index.ts",
+    "./admin": "./src/admin/index.ts",
+    "./operator": "./src/operator/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./console": "./src/console/index.ts",
+    "./btrc": "./src/btrc/index.ts",
+    "./settings": "./src/settings/index.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@isp/core": "*",
+    "@isp/ui": "*",
+    "@isp/auth": "*"
+  }
+}

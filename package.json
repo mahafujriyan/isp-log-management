@@ -1,13 +1,28 @@
 {
   "name": "isp-log-management",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "workers/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "npm run dev:operator",
+    "dev:marketing": "npm run dev -w @isp/marketing",
+    "dev:admin": "npm run dev -w @isp/super-admin",
+    "dev:operator": "npm run dev -w @isp/operator",
+    "build": "npm run build:operator",
+    "build:all": "npm run build -w @isp/marketing && npm run build -w @isp/super-admin && npm run build -w @isp/operator",
+    "build:marketing": "npm run build -w @isp/marketing",
+    "build:admin": "npm run build -w @isp/super-admin",
+    "build:operator": "npm run build -w @isp/operator",
+    "start:marketing": "npm run start -w @isp/marketing",
+    "start:admin": "npm run start -w @isp/super-admin",
+    "start:operator": "npm run start -w @isp/operator",
     "lint": "eslint",
-    "type-check": "tsc --noEmit",
+    "type-check": "npm run type-check -w @isp/core --if-present && npm run type-check -w @isp/operator --if-present",
+    "migrate:monorepo": "node scripts/migrate-monorepo.mjs",
     "verify:phase1": "node scripts/verify-phase1.mjs",
     "verify:phase2": "node scripts/verify-phase2.mjs",
     "verify:phase3": "node scripts/verify-phase3.mjs",
@@ -18,7 +33,6 @@
     "verify:phase8": "node scripts/verify-phase8.mjs",
     "verify:phase9": "node scripts/verify-phase9.mjs",
     "verify:all": "node scripts/verify-phase1.mjs && node scripts/verify-phase2.mjs && node scripts/verify-phase3.mjs && node scripts/verify-phase4.mjs && node scripts/verify-phase5.mjs && node scripts/verify-phase6.mjs && node scripts/verify-phase7.mjs",
-    "start:prod": "next start",
     "pm2:start": "pm2 start deploy/ecosystem.config.cjs",
     "pm2:stop": "pm2 stop deploy/ecosystem.config.cjs",
     "pm2:restart": "pm2 restart deploy/ecosystem.config.cjs",
@@ -32,7 +46,7 @@
     "db:company-branding": "node scripts/apply-company-branding.mjs",
     "db:syslog": "node scripts/apply-mikrotik-syslog.mjs",
     "db:register-sfp1": "node scripts/apply-register-sfp1.mjs",
-    "syslog:listener": "tsx src/services/syslog-listener/run.ts",
+    "syslog:listener": "npm run start -w @isp/syslog-listener",
     "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql",
     "db:phase8": "cd scripts && psql -U loguser -d isp_logserver -f phase8-migration.sql"
   },
@@ -69,6 +83,7 @@
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
     "tsx": "^4.20.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "turbo": "^2.5.4"
   }
 }
