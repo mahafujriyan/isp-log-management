@@ -1,16 +1,24 @@
 import { createPlan } from "@isp/core/services/plan.service";
 import { listPlans } from "@isp/core/services/tenant.service";
 import { apiError, requirePermission } from "@isp/core/utils/api.utils";
+import { corsHeaders, handleCorsPreflight, jsonWithCors } from "@isp/core/utils/cors.utils";
 import { mapDatabaseError } from "@isp/core/utils/db-error.utils";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function OPTIONS(request: Request) {
+  return handleCorsPreflight(request) ?? new NextResponse(null, { status: 204 });
+}
+
+export async function GET(request: Request) {
   try {
     const plans = await listPlans();
-    return NextResponse.json(plans);
+    return jsonWithCors(request, plans);
   } catch (error) {
     const mapped = mapDatabaseError(error);
-    return NextResponse.json(mapped.body, { status: mapped.status });
+    return NextResponse.json(mapped.body, {
+      status: mapped.status,
+      headers: corsHeaders(request),
+    });
   }
 }
 

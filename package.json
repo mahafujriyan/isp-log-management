@@ -8,7 +8,12 @@
     "workers/*"
   ],
   "scripts": {
-    "dev": "npm run dev:operator",
+    "dev": "npm run dev:all",
+    "dev:all": "node scripts/dev-all.mjs",
+    "dev:open": "node scripts/open-dev-urls.mjs",
+    "dev:check": "node scripts/dev-check.mjs",
+    "dev:stop": "node scripts/kill-dev-ports.mjs",
+    "dev:sync-env": "node scripts/sync-env.mjs",
     "dev:marketing": "npm run dev -w @isp/marketing",
     "dev:admin": "npm run dev -w @isp/super-admin",
     "dev:operator": "npm run dev -w @isp/operator",
@@ -20,7 +25,7 @@
     "start:marketing": "npm run start -w @isp/marketing",
     "start:admin": "npm run start -w @isp/super-admin",
     "start:operator": "npm run start -w @isp/operator",
-    "lint": "eslint",
+    "lint": "eslint apps/marketing/src apps/super-admin/src apps/operator/src packages workers",
     "type-check": "npm run type-check -w @isp/core --if-present && npm run type-check -w @isp/operator --if-present",
     "migrate:monorepo": "node scripts/migrate-monorepo.mjs",
     "verify:phase1": "node scripts/verify-phase1.mjs",
@@ -84,6 +89,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.20.3",
     "typescript": "^5",
-    "turbo": "^2.5.4"
+    "turbo": "^2.5.4",
+    "concurrently": "^9.2.0"
   }
 }

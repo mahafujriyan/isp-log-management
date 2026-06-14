@@ -18,7 +18,6 @@ import { Server as SocketIOServer } from "socket.io";
 import { receiveSyslogMessage } from "@isp/core/services/syslog-ingest.service";
 
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const SyslogServer = require("syslog-server");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

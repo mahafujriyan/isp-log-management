@@ -25,16 +25,6 @@ export function parsePriority(pri: number): { facility: number; severity: number
 
 export function parseRfc3164(raw: string): Rfc3164Message {
   const trimmed = raw.trim();
-  const fallback: Rfc3164Message = {
-    priority: 13,
-    facility: 1,
-    severity: 5,
-    timestamp: null,
-    hostname: "",
-    tag: "",
-    message: trimmed,
-    raw: trimmed,
-  };
 
   const priMatch = trimmed.match(/^<(\d{1,3})>/);
   let rest = trimmed;

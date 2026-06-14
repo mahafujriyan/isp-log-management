@@ -75,13 +75,23 @@ Use `apiUrl("/api/plans")` from `@isp/core/utils/portal-api.utils`.
 
 ```bash
 npm install
-npm run dev:marketing   # :3000
-npm run dev:admin       # :3001
-npm run dev:operator    # :3002
-npm run syslog:listener
+npm run dev          # starts all 3 portals (marketing + admin + operator)
 ```
 
+| Portal | URL |
+|--------|-----|
+| Marketing | http://localhost:3000 |
+| Super Admin | http://localhost:3001/admin/login |
+| Operator | http://localhost:3002/auth/login |
+| Dashboard | http://localhost:3002/dashboard |
+
+Copy `.env.example` → `.env.local` at **repo root** (one file for all apps).
+
+Optional syslog listener: `npm run syslog:listener`
+
 ## Production build (VPS)
+
+Full guide: **[deploy/VPS-HOSTING.md](deploy/VPS-HOSTING.md)** (PART 1–15, ৩ Section + Domain)
 
 ```bash
 npm run build:all

@@ -5,8 +5,13 @@ export class Database {
   private pool: Pool;
 
   constructor() {
+    const connectionString = env.database.url;
+    if (!connectionString) {
+      throw new Error("DATABASE_URL is not configured");
+    }
+
     this.pool = new Pool({
-      connectionString: env.database.url,
+      connectionString,
       ...DB_CONFIG.pool,
     });
 
@@ -19,12 +24,8 @@ export class Database {
     text: string,
     params?: unknown[]
   ): Promise<QueryResult<T>> {
-    const start = Date.now();
     try {
       const result = await this.pool.query<T>(text, params);
-      if (env.isDev) {
-       
-      }
       return result;
     } catch (error) {
       console.error("Database error:", error);
@@ -53,4 +54,20 @@ export class Database {
   }
 }
 
-export const db = new Database();
+let dbInstance: Database | null = null;
+
+function getDb(): Database {
+  if (!dbInstance) dbInstance = new Database();
+  return dbInstance;
+}
+
+/** Lazy DB singleton — waits until env is loaded (monorepo dev). */
+export const db: Database = new Proxy({} as Database, {
+  get(_target, prop: keyof Database) {
+    const instance = getDb();
+    const value = instance[prop];
+    return typeof value === "function"
+      ? (value as (...args: unknown[]) => unknown).bind(instance)
+      : value;
+  },
+});

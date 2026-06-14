@@ -5,14 +5,31 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
+    "**/.next/**",
+    "**/out/**",
+    "**/build/**",
+    "**/dist/**",
+    "**/.turbo/**",
+    "**/node_modules/**",
     "next-env.d.ts",
+    "apps/*/next-env.d.ts",
+    // Legacy single-app folder (monorepo uses apps/ + packages/)
+    "src/**",
   ]),
+  {
+    settings: {
+      next: {
+        rootDir: ["apps/marketing", "apps/super-admin", "apps/operator"],
+      },
+    },
+    rules: {
+      // React 19 compiler rules — too strict for standard data-fetch useEffect patterns
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/refs": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

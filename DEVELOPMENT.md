@@ -113,7 +113,9 @@ curl -X POST http://localhost:3000/api/logs/receive \
 
 ## 2. VPS Production (160.187.175.30)
 
-### One-time server setup
+**Full deployment guide:** [deploy/VPS-HOSTING.md](deploy/VPS-HOSTING.md) — ৩ Section (Marketing :3000, Admin :3001, Operator :3002) + Domain setup (PART 10)
+
+Domain fill-in sheet: `deploy/domains.template.env`
 
 ```bash
 cd /opt/isp-log-management
@@ -121,12 +123,15 @@ cp deploy/env.vps.example .env.production.local
 nano .env.production.local          # fill DATABASE_URL, secrets
 
 npm ci
-npm run build
+npm run build:all
 npm run db:vps
-sudo bash deploy/vps-setup.sh       # nginx, rsyslog, ufw, pm2
+npm run pm2:start
+pm2 save && pm2 startup
 ```
 
-### `.env.production.local` (production)
+See [deploy/VPS-HOSTING.md](deploy/VPS-HOSTING.md) for firewall, nginx (3 domains), MikroTik, SSL.
+
+### `.env.production.local` (3 portals — see deploy/env.vps.example)
 
 ```env
 NODE_ENV=production
@@ -179,14 +184,15 @@ sudo ufw allow 514/udp
 sudo ufw enable
 ```
 
-### Production URLs
+### Production URLs (3 sections)
 
-| Service | URL |
-|---------|-----|
-| Dashboard | http://160.187.175.30 |
-| Health | http://160.187.175.30/api/health |
-| Socket.IO | http://160.187.175.30/socket.io/ |
-| Log ingest API | POST http://160.187.175.30/api/logs/receive |
+| Section | Service | URL |
+|---------|---------|-----|
+| 1 | Marketing | http://160.187.175.30:3000 |
+| 2 | Super Admin | http://160.187.175.30:3001 |
+| 3 | Operator + API | http://160.187.175.30:3002 |
+| 3 | Health | http://160.187.175.30:3002/api/health |
+| 3 | Log ingest | POST http://160.187.175.30:3002/api/logs/receive |
 
 ---
 

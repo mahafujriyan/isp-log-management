@@ -14,7 +14,6 @@ import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { DemoRequestModal } from "@isp/features/marketing/components/DemoRequestModal";
 import { apiUrl } from "@isp/core/utils/portal-api.utils";
-import type { Plan } from "@isp/core/types";
 import {
   Activity,
   ArrowRight,
@@ -766,10 +765,22 @@ export function LandingPage() {
             <span className="text-[13px] font-bold text-slate-700">ISP LogServer</span>
             <span className="text-[12px] text-slate-400">· {COMPANY}</span>
           </div>
-          <nav className="flex gap-6 text-[12px] text-slate-400">
+          <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-[12px] text-slate-400">
             {[["#features","Features"],["#pricing","Pricing"],["#faq","FAQ"]].map(([href,label]) => (
               <a key={href} href={href} className="hover:text-blue-600 transition-colors">{label}</a>
             ))}
+            <a
+              href={process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3001/admin/login"}
+              className="font-medium text-amber-700 hover:text-amber-900 transition-colors"
+            >
+              Super Admin
+            </a>
+            <a
+              href={`${process.env.NEXT_PUBLIC_OPERATOR_URL ?? "http://localhost:3002"}/auth/login`}
+              className="font-medium text-blue-700 hover:text-blue-900 transition-colors"
+            >
+              Operator Login
+            </a>
             <button type="button" onClick={() => openDemo({ title: "Contact Us" })} className="hover:text-blue-600 transition-colors">Contact</button>
           </nav>
           <p className="text-[11px] text-slate-400">© {new Date().getFullYear()} {COMPANY}</p>

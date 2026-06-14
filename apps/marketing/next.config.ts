@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { loadMonorepoEnv } from "@isp/core/next/load-monorepo-env";
+
+const portalEnv = loadMonorepoEnv(__dirname, "marketing");
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -21,9 +24,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname, "../.."),
   },
-  env: {
-    NEXT_PUBLIC_PORTAL: "marketing",
-  },
+  env: portalEnv,
   headers: async () => [{ source: "/(.*)", headers: securityHeaders }],
 };
 
