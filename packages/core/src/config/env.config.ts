@@ -71,7 +71,7 @@ export const env = {
   get syslog() {
     return {
       udpPort: Number(process.env.SYSLOG_UDP_PORT ?? 514),
-      socketPort: Number(process.env.SOCKET_PORT ?? 3001),
+      socketPort: Number(process.env.SOCKET_PORT ?? 3003),
       logFile: process.env.SYSLOG_FILE ?? "/var/log/mikrotik/isp-syslog.log",
       defaultTenantSchema: process.env.DEFAULT_TENANT_SCHEMA ?? "tenant_001",
     };

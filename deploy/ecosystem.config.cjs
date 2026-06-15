@@ -87,7 +87,7 @@ module.exports = {
       env: {
         ...sharedEnv,
         SYSLOG_UDP_PORT: env.SYSLOG_UDP_PORT || "514",
-        SOCKET_PORT: env.SOCKET_PORT || "3001",
+        SOCKET_PORT: env.SOCKET_PORT || "3003",
         SYSLOG_FILE: env.SYSLOG_FILE || "/var/log/mikrotik/isp-syslog.log",
       },
     },

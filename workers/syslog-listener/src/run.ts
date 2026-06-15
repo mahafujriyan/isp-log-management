@@ -44,7 +44,7 @@ loadEnvFile(path.join(root, ".env.local"));
 loadEnvFile(path.join(root, ".env"));
 
 const UDP_PORT = Number(process.env.SYSLOG_UDP_PORT ?? 514);
-const SOCKET_PORT = Number(process.env.SOCKET_PORT ?? 3001);
+const SOCKET_PORT = Number(process.env.SOCKET_PORT ?? 3003);
 const SYSLOG_FILE = process.env.SYSLOG_FILE ?? "/var/log/mikrotik/isp-syslog.log";
 const TAIL_FILE = process.env.SYSLOG_TAIL_FILE !== "false";
 
@@ -118,9 +118,14 @@ function startUdpListener() {
     console.log(`[syslog] UDP listener on 0.0.0.0:${UDP_PORT}`);
   });
 
-  server.start({ port: UDP_PORT, address: "0.0.0.0" }).catch((err: Error) => {
+  server.start({ port: UDP_PORT, address: "0.0.0.0" }).catch((err: Error & { code?: string }) => {
     console.error("[syslog] UDP bind failed:", err.message);
-    console.error("Tip: set SYSLOG_UDP_PORT=5514 in .env.local for local Windows dev");
+    if (err.code === "EADDRINUSE") {
+      console.warn("[syslog] UDP 514 busy (rsyslog?) — using log file tail only if enabled");
+    }
+    if (TAIL_FILE && fs.existsSync(SYSLOG_FILE)) {
+      console.log(`[syslog] tailing ${SYSLOG_FILE} as fallback`);
+    }
   });
 }
 
@@ -152,6 +157,14 @@ function tailLogFile() {
     position = stat.size;
   });
 }
+
+httpServer.on("error", (err: NodeJS.ErrnoException) => {
+  console.error(`[syslog] Socket.IO failed on port ${SOCKET_PORT}:`, err.message);
+  if (err.code === "EADDRINUSE") {
+    console.error("Port in use — set SOCKET_PORT=3003 in .env.production.local (3001 is super-admin)");
+  }
+  process.exit(1);
+});
 
 httpServer.listen(SOCKET_PORT, () => {
   console.log(`[syslog] Socket.IO on :${SOCKET_PORT}`);
