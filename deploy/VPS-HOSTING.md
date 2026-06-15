@@ -175,8 +175,8 @@ cd /opt/isp-log-management
 npm ci
 npm run build:all
 
-npm run db:syslog
-npm run db:register-sfp1
+npm run db:setup          # first time only (skip if tables exist)
+npm run db:migrate        # patches: api_user, MikroTik, branding, demo, SFP1 router
 
 sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))
 
@@ -532,7 +532,7 @@ pm2 status
 | সমস্যা | সমাধান |
 |--------|---------|
 | **`Can't resolve '@isp/features/logs'`** | `packages/features/src/logs/` git-এ ছিল না (`.gitignore` এ `logs/` rule)। Fix: latest pull। check: `ls packages/features/src/logs/`. Manual: PC থেকে `useLogSocket.ts` + `index.ts` upload |
-| **`Missing script: "build:all"`** | VPS-এ **পুরনো code** — `git pull` করুন। check: `ls apps/` + `grep build:all package.json`. না থাকলে PC থেকে latest upload। Temp: `npm run build -w @isp/marketing && npm run build -w @isp/super-admin && npm run build -w @isp/operator` |
+| **`api_user` column missing** | Migration skip | `npm run db:migrate` (adds api_user, routers, session_logs) |
 | `:3000/admin` 404 | Admin = **SECTION 2** → port **3001** |
 | `:3001` বা `:3002` 404 | latest code + `npm run build:all` + restart |
 | Login হয়, logout নয় | IP mode: `AUTH_COOKIE_SECURE=false` |

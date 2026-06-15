@@ -50,7 +50,18 @@ ls packages/features/src/logs/
 
 ---
 
-## Step 3 — Build
+## Step 3 — Database migrations (api_user fix)
+
+```bash
+cd /opt/isp-log-management
+npm run db:migrate
+```
+
+এটা add করবে: `api_user`, `api_password`, `api_port`, MikroTik routers, session_logs, branding, demo, SFP1 device।
+
+---
+
+## Step 4 — Build
 
 ```bash
 cd /opt/isp-log-management
@@ -62,7 +73,7 @@ npm run build:all
 
 ---
 
-## Step 4 — পুরনো PM2 বন্ধ → নতুন start
+## Step 5 — পুরনো PM2 বন্ধ → নতুন start
 
 ```bash
 pm2 delete isp-logserver
@@ -85,7 +96,7 @@ pm2 status
 
 ---
 
-## Step 5 — Port check
+## Step 6 — Port check
 
 ```bash
 sudo ss -tlnp | grep -E '3000|3001|3002'
@@ -96,7 +107,7 @@ curl -I http://127.0.0.1:3001/
 
 ---
 
-## Step 6 — nginx (port 80 → operator)
+## Step 7 — nginx (port 80 → operator)
 
 পুরনো config `:3000` এ proxy করত। Monorepo-তে main site = **operator :3002**।
 

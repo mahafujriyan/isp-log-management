@@ -55,6 +55,9 @@ BEGIN
       syslog_user VARCHAR(64) DEFAULT 'log',
       syslog_port INT DEFAULT 514,
       listen_port INT DEFAULT 514,
+      api_user VARCHAR(128),
+      api_password VARCHAR(256),
+      api_port INT DEFAULT 8728,
       status VARCHAR(32) DEFAULT 'active',
       last_seen_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()

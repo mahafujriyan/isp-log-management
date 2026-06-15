@@ -58,6 +58,9 @@ BEGIN
       syslog_user VARCHAR(64) DEFAULT 'log',
       syslog_port INT DEFAULT 514,
       listen_port INT DEFAULT 514,
+      api_user VARCHAR(128),
+      api_password VARCHAR(256),
+      api_port INT DEFAULT 8728,
       status VARCHAR(32) DEFAULT 'active',
       last_seen_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
@@ -151,6 +154,19 @@ DECLARE
 BEGIN
   FOR r IN SELECT schema_name FROM public.tenants WHERE status = 'active' LOOP
     PERFORM public.create_tenant_schema(r.schema_name);
+
+    EXECUTE format(
+      'ALTER TABLE %I.devices ADD COLUMN IF NOT EXISTS api_user VARCHAR(128)',
+      r.schema_name
+    );
+    EXECUTE format(
+      'ALTER TABLE %I.devices ADD COLUMN IF NOT EXISTS api_password VARCHAR(256)',
+      r.schema_name
+    );
+    EXECUTE format(
+      'ALTER TABLE %I.devices ADD COLUMN IF NOT EXISTS api_port INT DEFAULT 8728',
+      r.schema_name
+    );
 
     -- Sync devices -> routers for existing installs
     EXECUTE format(

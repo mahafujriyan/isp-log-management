@@ -1,5 +1,5 @@
 /** Returns a user-facing API error if PostgreSQL relation is missing (42P01). */
-export function mapDatabaseError(error: unknown, hint = "npm run db:setup") {
+export function mapDatabaseError(error: unknown, hint = "npm run db:migrate") {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("does not exist") || message.includes("42P01")) {
     return {

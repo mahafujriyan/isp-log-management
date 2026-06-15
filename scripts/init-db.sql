@@ -145,3 +145,6 @@ WHERE NOT EXISTS (SELECT 1 FROM tenant_001.syslogs LIMIT 1);
 
 -- MikroTik syslog: routers, pppoe_users, session_logs
 \i mikrotik-syslog-migration.sql
+
+-- Device API credentials (api_user, api_password, api_port)
+\i device-credentials-migration.sql
