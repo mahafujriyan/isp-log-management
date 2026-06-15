@@ -3,7 +3,7 @@ import {
   updateTenantDevice,
 } from "@isp/core/services/device.service";
 import { getTenantById } from "@isp/core/services/tenant.service";
-import { apiError, rejectDemoWrite, requirePermission } from "@isp/core/utils/api.utils";
+import { apiError, rejectDemoWrite, requirePermission, resolveTenantScope } from "@isp/core/utils/api.utils";
 import { mapDatabaseError } from "@isp/core/utils/db-error.utils";
 import { NextResponse } from "next/server";
 
@@ -23,7 +23,11 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const tenantId = Number(body.tenant_id ?? 1);
+    const requested = Number(body.tenant_id ?? 1);
+    const scope = await resolveTenantScope(Number.isFinite(requested) ? requested : undefined);
+    if (scope.error) return scope.error;
+
+    const tenantId = scope.tenant_id ?? requested;
     const tenant = await getTenantById(tenantId);
     if (!tenant) return apiError("Tenant not found", 404);
 

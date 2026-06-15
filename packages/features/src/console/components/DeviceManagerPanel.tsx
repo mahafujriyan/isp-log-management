@@ -10,6 +10,34 @@ interface DeviceManagerPanelProps {
   variant?: "devices" | "servers";
 }
 
+async function readApiResponse(res: Response) {
+  const text = await res.text();
+  let data: { error?: string; detail?: string } = {};
+  if (text) {
+    try {
+      data = JSON.parse(text) as { error?: string; detail?: string };
+    } catch {
+      throw new Error(
+        res.ok
+          ? "Invalid server response"
+          : `Server error (${res.status}). Use operator URL :3002 and run npm run db:migrate on VPS.`
+      );
+    }
+  }
+  if (!res.ok) {
+    throw new Error(data.detail ?? data.error ?? `Request failed (${res.status})`);
+  }
+  return data;
+}
+
+function formatFetchError(err: unknown, action: string) {
+  if (!(err instanceof Error)) return `${action} failed`;
+  if (err.message === "Failed to fetch") {
+    return `${action} failed — cannot reach API. Open http://YOUR-VPS:3002/dashboard (operator app), not port 3000/3001.`;
+  }
+  return err.message;
+}
+
 export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelProps) {
   const { tenantId, tenants, setTenantId } = useTenantContext();
   const [devices, setDevices] = useState<Device[]>([]);
@@ -40,12 +68,11 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
     setLoading(true);
     try {
       const res = await fetch(`/api/devices?tenant_id=${tenantId}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Failed to load");
+      const data = (await readApiResponse(res)) as { devices?: Device[] };
       setDevices(data.devices ?? []);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Load failed");
+      setError(formatFetchError(err, "Load"));
     } finally {
       setLoading(false);
     }
@@ -140,12 +167,11 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Save failed");
+      await readApiResponse(res);
       setShowForm(false);
       await loadDevices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      setError(formatFetchError(err, "Save"));
     } finally {
       setSubmitting(false);
     }
@@ -155,13 +181,10 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
     if (!confirm(`Delete ${device.name}?`)) return;
     try {
       const res = await fetch(`/api/devices/${device.id}?tenant_id=${tenantId}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail ?? data.error ?? "Delete failed");
-      }
+      await readApiResponse(res);
       await loadDevices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      setError(formatFetchError(err, "Delete"));
     }
   }
 

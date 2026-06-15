@@ -42,8 +42,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const tenantId = Number(body.tenant_id ?? 1);
+    const requested = Number(body.tenant_id ?? 1);
+    const scope = await resolveTenantScope(Number.isFinite(requested) ? requested : undefined);
+    if (scope.error) return scope.error;
 
+    const tenantId = scope.tenant_id ?? requested;
     const tenant = await getTenantById(tenantId);
     if (!tenant) {
       return apiError("Tenant not found", 404);
@@ -63,11 +66,12 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(device, { status: 201 });
-  } catch (error) {
-    return apiError(
-      "Creation failed",
-      400,
-      error instanceof Error ? error.message : "Unknown"
-    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("required") || message.includes("not found")) {
+      return apiError("Creation failed", 400, message);
+    }
+    const mapped = mapDatabaseError(err);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 }

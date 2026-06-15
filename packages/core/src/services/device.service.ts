@@ -58,6 +58,15 @@ function deviceQuery(schema: string, where = "", order = "ORDER BY d.created_at 
   return deviceSelectSql.replace(/%SCHEMA%/g, schemaSafe) + where + " " + order;
 }
 
+/** Ensures devices table has api_* columns and MikroTik routers table (safe to re-run). */
+async function ensureTenantDeviceSchema(schemaName: string): Promise<void> {
+  const schema = assertValidTenantSchema(schemaName);
+  await db.query(`SELECT public.create_tenant_schema($1)`, [schema]).catch(() => {});
+  await db.query(`ALTER TABLE "${schema}".devices ADD COLUMN IF NOT EXISTS api_user VARCHAR(128)`);
+  await db.query(`ALTER TABLE "${schema}".devices ADD COLUMN IF NOT EXISTS api_password VARCHAR(256)`);
+  await db.query(`ALTER TABLE "${schema}".devices ADD COLUMN IF NOT EXISTS api_port INT DEFAULT 8728`);
+}
+
 export async function listTenantDevices(schemaName: string): Promise<Device[]> {
   const rows = await db.getMany<DeviceRow & { users_today: number }>(deviceQuery(schemaName));
   return rows.map(mapDevice);
@@ -95,6 +104,8 @@ export async function createTenantDevice(
     throw new Error("Device name and IP are required");
   }
 
+  await ensureTenantDeviceSchema(schema);
+
   const row = await db.getOne<DeviceRow>(
     `INSERT INTO "${schema}".devices
       (name, device_ip, config_type, nat_ip, syslog_user, syslog_port, listen_port,
@@ -127,7 +138,9 @@ export async function createTenantDevice(
       device_ip: row.device_ip,
       nat_ip: row.nat_ip,
       syslog_port: row.syslog_port,
-    }).catch(() => {});
+    }).catch((err) => {
+      console.warn("[device] router sync skipped:", err instanceof Error ? err.message : err);
+    });
   }
 
   return mapDevice({ ...row, users_today: 0 });
@@ -139,6 +152,8 @@ export async function updateTenantDevice(
   input: Partial<CreateDeviceInput> & { status?: string }
 ): Promise<Device> {
   const schema = assertValidTenantSchema(schemaName);
+
+  await ensureTenantDeviceSchema(schema);
 
   const row = await db.getOne<DeviceRow>(
     `UPDATE "${schema}".devices SET
