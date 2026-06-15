@@ -23,6 +23,7 @@ function loadEnvFile(filePath) {
   }
 }
 
+loadEnvFile(path.join(root, ".env.production.local"));
 loadEnvFile(path.join(root, ".env.local"));
 loadEnvFile(path.join(root, ".env"));
 

@@ -45,6 +45,7 @@ function preprocessSql(content, baseDir, seen = new Set()) {
 }
 
 async function main() {
+  loadEnvFile(path.join(root, ".env.production.local"));
   loadEnvFile(path.join(root, ".env.local"));
   loadEnvFile(path.join(root, ".env"));
 

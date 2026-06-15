@@ -540,6 +540,7 @@ pm2 status
 | MikroTik log নেই | `ufw allow 514/udp` + router remote syslog |
 | nginx 502 | `pm2 logs isp-operator` |
 | Domain কাজ করে না | DNS A record → `160.187.175.30` |
+| `:3001` timeout (browser) | App বন্ধ বা firewall | `bash deploy/vps-port-check.sh` → `pm2 start` + `ufw allow 3001/tcp` অথবা `http://160.187.175.30` (port 80) |
 
 ```bash
 pm2 logs isp-marketing --lines 30
