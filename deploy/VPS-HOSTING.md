@@ -531,6 +531,7 @@ pm2 status
 
 | সমস্যা | সমাধান |
 |--------|---------|
+| **`Missing script: "build:all"`** | VPS-এ **পুরনো code** — `git pull` করুন। check: `ls apps/` + `grep build:all package.json`. না থাকলে PC থেকে latest upload। Temp: `npm run build -w @isp/marketing && npm run build -w @isp/super-admin && npm run build -w @isp/operator` |
 | `:3000/admin` 404 | Admin = **SECTION 2** → port **3001** |
 | `:3001` বা `:3002` 404 | latest code + `npm run build:all` + restart |
 | Login হয়, logout নয় | IP mode: `AUTH_COOKIE_SECURE=false` |
