@@ -14,8 +14,20 @@ async function metricsForSchema(schema: string): Promise<{
   const logsRow = await db.getOne<{ count: string; users: string }>(
     `SELECT COUNT(*)::text AS count,
             COUNT(DISTINCT pppoe_user)::text AS users
-     FROM "${schemaSafe}".syslogs
-     WHERE received_at >= CURRENT_DATE`
+     FROM (
+       SELECT pppoe_user FROM "${schemaSafe}".session_logs
+       WHERE log_time >= CURRENT_DATE
+       UNION ALL
+       SELECT pppoe_user FROM "${schemaSafe}".syslogs
+       WHERE received_at >= CURRENT_DATE
+     ) recent`
+  ).catch(async () =>
+    db.getOne<{ count: string; users: string }>(
+      `SELECT COUNT(*)::text AS count,
+              COUNT(DISTINCT pppoe_user)::text AS users
+       FROM "${schemaSafe}".syslogs
+       WHERE received_at >= CURRENT_DATE`
+    )
   );
 
   const devicesRow = await db.getOne<{ count: string }>(

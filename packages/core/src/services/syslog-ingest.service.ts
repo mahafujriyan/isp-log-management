@@ -1,5 +1,5 @@
 import { parseMikroTikSyslog } from "@isp/core/lib/parser";
-import { ensureRouter, findRouterByIp, ingestParsedLog } from "@isp/core/lib/db/ingest";
+import { findRouterByIp, ensureRouter, ingestParsedLog, resolveTenantForRouterIp } from "@isp/core/lib/db/ingest";
 import { getTenantById, getTenantBySchema } from "@isp/core/services/tenant.service";
 import type { LogEntry } from "@isp/core/types";
 
@@ -43,7 +43,7 @@ export async function receiveSyslogMessage(input: ReceiveSyslogInput): Promise<R
   let schemaName = input.schema;
   let routerId: number | null = null;
 
-  const existing = routerIp ? await findRouterByIp(routerIp) : null;
+  const existing = routerIp ? await resolveTenantForRouterIp(routerIp) : null;
   if (existing) {
     tenantId = existing.tenant_id;
     schemaName = existing.schema_name;

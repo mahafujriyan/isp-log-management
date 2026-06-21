@@ -19,6 +19,7 @@ const steps = [
   ["Company branding columns", "apply-company-branding.mjs"],
   ["Demo provisioning", "apply-demo-migrations.mjs"],
   ["Register CLC-SFP1 MikroTik device", "apply-register-sfp1.mjs"],
+  ["Sync devices → router_tenant_map", "sync-router-map.mjs"],
 ];
 
 for (const [label, script] of steps) {

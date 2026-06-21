@@ -47,6 +47,43 @@ export async function findRouterByIp(routerIp: string): Promise<RouterContext | 
     : null;
 }
 
+/** Match MikroTik source IP to a tenant via router map or devices table (any tenant). */
+export async function resolveTenantForRouterIp(routerIp: string): Promise<RouterContext | null> {
+  const mapped = await findRouterByIp(routerIp);
+  if (mapped) return mapped;
+
+  const tenants = await db.getMany<{ id: number; schema_name: string }>(
+    `SELECT id, schema_name FROM public.tenants ORDER BY id`
+  );
+
+  for (const tenant of tenants) {
+    const schema = assertValidTenantSchema(tenant.schema_name);
+    const device = await db.getOne<{
+      name: string;
+      device_ip: string;
+      nat_ip: string | null;
+      syslog_port: number;
+    }>(
+      `SELECT name, host(device_ip) AS device_ip, host(nat_ip) AS nat_ip, syslog_port
+       FROM "${schema}".devices
+       WHERE host(device_ip) = $1 OR host(nat_ip) = $1
+       LIMIT 1`,
+      [routerIp]
+    ).catch(() => null);
+
+    if (device) {
+      return syncDeviceAsRouter(schema, tenant.id, {
+        name: device.name,
+        device_ip: device.device_ip,
+        nat_ip: device.nat_ip,
+        syslog_port: device.syslog_port,
+      });
+    }
+  }
+
+  return null;
+}
+
 export async function syncDeviceAsRouter(
   schemaName: string,
   tenantId: number,

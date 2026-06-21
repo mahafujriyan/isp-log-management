@@ -14,7 +14,7 @@ interface LogStreamPanelProps {
 type TimeRange = "1h" | "24h" | "7d" | "all";
 
 export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
-  const { tenantId, tenants, setTenantId, isDemo } = useTenantContext();
+  const { tenantId, tenants, setTenantId, isDemo, activeTenant } = useTenantContext();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("");
@@ -145,9 +145,17 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
       ) : logs.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] px-4 py-10 text-center text-[13px] text-[#64748B]">
           <p className="font-medium text-[#334155]">No logs in this period</p>
-          <p className="mt-1">Try <strong>Last 7 days</strong> or <strong>All time</strong>. MikroTik must send syslog to this server.</p>
-          {socketLive && (socketStats?.processed ?? 0) === 0 && (
-            <p className="mt-2 text-[12px] text-[#F57F17]">Socket is live but 0 logs ingested — send a test via API or configure MikroTik syslog.</p>
+          <p className="mt-1">
+            Tenant: <strong>{activeTenant?.schema_name ?? tenantId}</strong> — MikroTik device এই tenant-এ add আছে কিনা check করুন।
+          </p>
+          <p className="mt-1">Filter: <strong>Last 7 days</strong> বা <strong>All time</strong> try করুন।</p>
+          {socketLive && (socketStats?.processed ?? 0) > 0 && (
+            <p className="mt-2 text-[12px] text-[#2E7D32]">
+              Listener processed {socketStats?.processed} logs — wrong tenant select হলে এখানে দেখাবে না।
+            </p>
+          )}
+          {socketError && (
+            <p className="mt-2 text-[12px] text-[#F57F17]">Live socket: {socketError}</p>
           )}
         </div>
       ) : (

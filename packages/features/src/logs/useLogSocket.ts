@@ -31,6 +31,16 @@ function payloadToLogEntry(p: SocketLogPayload): LogEntry {
   };
 }
 
+function resolveSocketUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
+  if (explicit && explicit !== "same-origin") return explicit;
+  if (typeof window === "undefined") return "";
+  const { protocol, hostname, port } = window.location;
+  // Direct operator :3002 — Socket.IO worker runs on :3003
+  if (port === "3002") return `${protocol}//${hostname}:3003`;
+  return window.location.origin;
+}
+
 export function useLogSocket(tenantId: number, onLog?: (entry: LogEntry) => void) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,13 +53,7 @@ export function useLogSocket(tenantId: number, onLog?: (entry: LogEntry) => void
   }, [onLog]);
 
   useEffect(() => {
-    const explicit = process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
-    const socketUrl =
-      explicit && explicit !== "same-origin"
-        ? explicit
-        : typeof window !== "undefined"
-          ? window.location.origin
-          : "";
+    const socketUrl = resolveSocketUrl();
 
     if (!socketUrl) {
       setError("Socket URL not configured");
