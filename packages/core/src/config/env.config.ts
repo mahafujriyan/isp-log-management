@@ -1,3 +1,5 @@
+import { resolvePgDatabaseUrl } from "@isp/core/lib/resolve-database-url";
+
 /**
  * Typed environment configuration — reads process.env lazily (monorepo-safe).
  */
@@ -29,12 +31,17 @@ export const env = {
   },
 
   get database() {
-    return { url: process.env.DATABASE_URL ?? "" };
+    return { url: resolvePgDatabaseUrl(process.env.DATABASE_URL) };
   },
 
   get auth() {
     return {
-      secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "",
+      secret:
+        process.env.AUTH_SECRET ??
+        process.env.NEXTAUTH_SECRET ??
+        (process.env.NODE_ENV === "production"
+          ? ""
+          : "dev-local-auth-secret-min-32-characters-change-me"),
       url: process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000",
       sessionMaxAge: 60 * 60 * 8,
       superAdminCode: process.env.SUPER_ADMIN_SECURITY_CODE ?? "CYBER-LINK-2026",

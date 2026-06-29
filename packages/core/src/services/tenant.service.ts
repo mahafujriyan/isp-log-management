@@ -92,10 +92,12 @@ export function syslogToLogEntry(row: SyslogEntry): LogEntry {
     pppoe_user: row.pppoe_user ?? "",
     mac: row.mac_address ?? "",
     user_ip: row.user_ip ?? "",
+    user_port: row.user_port ?? undefined,
     nat_ip: row.nat_ip ?? "",
+    nat_port: row.nat_port ?? undefined,
     visited_ip: row.visited_ip ?? "",
     port: row.visited_port ?? 0,
-    nat_port: row.user_port ?? undefined,
     protocol: row.protocol ?? undefined,
+    raw_message: row.raw_message ?? undefined,
   };
 }

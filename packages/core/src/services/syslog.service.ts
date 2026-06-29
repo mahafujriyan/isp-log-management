@@ -7,7 +7,6 @@ import {
   syslogToLogEntry,
 } from "@isp/core/services/tenant.service";
 import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
-import { generateMockLogEntry } from "@isp/core/services/mock-data.service";
 
 interface SyslogQueryOptions {
   limit?: number;
@@ -197,7 +196,7 @@ export async function resolveLogsQuery(params: {
   user?: string;
   mac?: string;
   nat_ip?: string;
-}): Promise<{ logs: LogEntry[]; source: "tenant" | "all" | "mock"; schema_name?: string }> {
+}): Promise<{ logs: LogEntry[]; source: "tenant" | "all"; schema_name?: string }> {
   const options: SyslogQueryOptions = {
     limit: params.limit,
     from: params.from,
@@ -223,10 +222,7 @@ export async function resolveLogsQuery(params: {
   const allLogs = await getLogsAcrossTenants(options);
   if (allLogs.length > 0) return { logs: allLogs, source: "all" };
 
-  const mockLogs = Array.from({ length: Math.min(options.limit ?? 50, 200) }, () =>
-    generateMockLogEntry()
-  );
-  return { logs: mockLogs, source: "mock" };
+  return { logs: [], source: "tenant" };
 }
 
 export async function countTenantSyslogs(schemaName: string): Promise<number> {

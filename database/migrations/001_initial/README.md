@@ -1,0 +1,3 @@
+-- Initial schema is applied via database/manifest.mjs (001_initial).
+-- This folder holds future versioned SQL patches, e.g.:
+--   003_add_audit_logs/up.sql

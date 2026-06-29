@@ -1,18 +1,29 @@
 import { Pool, QueryResult, QueryResultRow } from "pg";
 import { DB_CONFIG, env } from "@isp/core/config";
+import { resolvePgDatabaseUrl } from "@isp/core/lib/resolve-database-url";
 
 export class Database {
   private pool: Pool;
 
   constructor() {
-    const connectionString = env.database.url;
+    const connectionString = resolvePgDatabaseUrl(env.database.url);
     if (!connectionString) {
       throw new Error("DATABASE_URL is not configured");
+    }
+
+    if (connectionString !== env.database.url && process.env.NODE_ENV !== "production") {
+      console.warn(
+        "[db] DATABASE_URL was a Prisma dev proxy URL — using TCP:",
+        connectionString.replace(/:[^:@/]+@/, ":***@")
+      );
     }
 
     this.pool = new Pool({
       connectionString,
       ...DB_CONFIG.pool,
+      ssl: connectionString.includes("sslmode=require")
+        ? { rejectUnauthorized: false }
+        : undefined,
     });
 
     this.pool.on("error", (err) => {

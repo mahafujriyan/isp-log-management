@@ -17,8 +17,16 @@ import { PAGE_TITLES } from "@isp/core/constants/navigation.constants";
 import { useTenantContext } from "@isp/auth/hooks/useTenantContext";
 import { BtrcPanel } from "@isp/features/btrc/components/BtrcPanel";
 import type { DashboardPageId, LogEntry } from "@isp/core/types";
-import { getHourlyLogCounts, getPortDistribution } from "@isp/core/services/mock-data.service";
 import { ChevronDown } from "lucide-react";
+
+const EMPTY_PORT_DATA = {
+  https: 0,
+  http: 0,
+  p8080: 0,
+  p9998: 0,
+  dns: 0,
+  other: 0,
+};
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -42,11 +50,11 @@ export function DashboardApp() {
     totalLogs: 0,
     activeUsers: 0,
     devices: 0,
-    diskUsedGb: 1264,
-    diskTotalGb: 1931,
+    diskUsedGb: 0,
+    diskTotalGb: 0,
   });
   const [hourlyData, setHourlyData] = useState<number[]>(Array(24).fill(0));
-  const [portData, setPortData] = useState(getPortDistribution());
+  const [portData, setPortData] = useState(EMPTY_PORT_DATA);
   const [topUsers, setTopUsers] = useState<[string, number][]>([]);
   const [topIps, setTopIps] = useState<[string, number][]>([]);
 
@@ -84,22 +92,29 @@ export function DashboardApp() {
         const uMap: Record<string, number> = {};
         const iMap: Record<string, number> = {};
         const hourCounts = Array(24).fill(0);
+        const portMap = { ...EMPTY_PORT_DATA };
 
         logs.forEach((l) => {
           uMap[l.pppoe_user] = (uMap[l.pppoe_user] ?? 0) + 1;
           iMap[l.visited_ip] = (iMap[l.visited_ip] ?? 0) + 1;
           const h = new Date(l.time).getHours();
           if (!Number.isNaN(h)) hourCounts[h] += 1;
+          const port = l.port ?? l.nat_port ?? 0;
+          if (port === 443) portMap.https += 1;
+          else if (port === 80) portMap.http += 1;
+          else if (port === 8080) portMap.p8080 += 1;
+          else if (port === 9998) portMap.p9998 += 1;
+          else if (port === 53) portMap.dns += 1;
+          else portMap.other += 1;
         });
 
         setTopUsers(Object.entries(uMap).sort((a, b) => b[1] - a[1]).slice(0, 5));
         setTopIps(Object.entries(iMap).sort((a, b) => b[1] - a[1]).slice(0, 5));
         if (hourCounts.some((v) => v > 0)) setHourlyData(hourCounts);
+        setPortData(portMap);
         setStreamCount(logs.length);
       })
-      .catch(() => {
-        setHourlyData(getHourlyLogCounts());
-      });
+      .catch(() => {});
   }, [tenantId]);
 
   return (

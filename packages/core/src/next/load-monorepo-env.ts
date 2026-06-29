@@ -24,7 +24,7 @@ export function loadMonorepoEnv(appDirname: string, portal: MonorepoPortal) {
   process.env.NEXT_PUBLIC_ADMIN_URL ??= "http://localhost:3001";
   process.env.NEXT_PUBLIC_OPERATOR_URL ??= "http://localhost:3002";
   process.env.NEXT_PUBLIC_API_URL ??= process.env.NEXT_PUBLIC_OPERATOR_URL;
-  process.env.NEXT_PUBLIC_SOCKET_URL ??= "http://localhost:3001";
+  process.env.NEXT_PUBLIC_SOCKET_URL ??= "http://localhost:3003";
   process.env.AUTH_COOKIE_SECURE ??= "false";
   process.env.SUPER_ADMIN_SECURITY_CODE ??= "CYBER-LINK-2026";
 

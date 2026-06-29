@@ -4,6 +4,7 @@ import { env } from "@isp/core/config/env.config";
 import type { AuthUser } from "@isp/core/types/auth.types";
 
 export const nextAuthConfig = {
+  secret: env.auth.secret,
   pages: {
     signIn: AUTH_CONFIG.pages.signIn,
   },

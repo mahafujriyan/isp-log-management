@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { LogEntry } from "@isp/core/types";
+import { formatIspLogLine } from "@isp/core/utils/mikrotik-parser.utils";
 
 interface SocketLogPayload {
   timestamp: string;
@@ -14,21 +15,26 @@ interface SocketLogPayload {
   visited_ip: string;
   visited_port: number | null;
   protocol: string;
+  raw_message?: string;
   schema_name?: string;
 }
 
 function payloadToLogEntry(p: SocketLogPayload): LogEntry {
-  return {
+  const entry: LogEntry = {
     time: p.timestamp,
     pppoe_user: p.pppoe_user ?? "",
     mac: p.mac_address ?? "",
     user_ip: p.user_ip ?? "",
+    user_port: p.user_port ?? undefined,
     nat_ip: p.nat_ip ?? "",
     visited_ip: p.visited_ip ?? "",
     port: p.visited_port ?? 0,
     nat_port: p.nat_port ?? undefined,
     protocol: p.protocol,
+    raw_message: p.raw_message,
   };
+  if (!entry.raw_message) entry.raw_message = formatIspLogLine(entry);
+  return entry;
 }
 
 function resolveSocketUrl(): string {

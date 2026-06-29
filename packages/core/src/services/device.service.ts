@@ -1,7 +1,6 @@
 import { db } from "@isp/core/lib/database";
 import type { CreateDeviceInput, Device } from "@isp/core/types";
 import { getTenantById, getTenantBySchema } from "@isp/core/services/tenant.service";
-import { DEMO_DEVICES } from "@isp/core/services/mock-data.service";
 import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
 
 interface DeviceRow {
@@ -224,7 +223,7 @@ export async function resolveDevicesQuery(params: {
   tenant_id?: number;
   schema?: string;
   disabled?: boolean;
-}): Promise<{ devices: Device[]; schema_name: string | null; source: "tenant" | "mock" }> {
+}): Promise<{ devices: Device[]; schema_name: string | null; source: "tenant" }> {
   if (params.tenant_id) {
     const tenant = await getTenantById(params.tenant_id);
     if (tenant) {
@@ -246,8 +245,8 @@ export async function resolveDevicesQuery(params: {
   }
 
   if (params.disabled) {
-    return { devices: [], schema_name: null, source: "mock" };
+    return { devices: [], schema_name: null, source: "tenant" };
   }
 
-  return { devices: DEMO_DEVICES, schema_name: null, source: "mock" };
+  return { devices: [], schema_name: null, source: "tenant" };
 }

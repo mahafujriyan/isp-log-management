@@ -32,15 +32,17 @@ const chartOptions = {
   plugins: { legend: { display: false } },
 };
 
-export function DiskChart() {
+export function DiskChart({ usedGb = 0, totalGb = 0 }: { usedGb?: number; totalGb?: number }) {
+  const free = Math.max(totalGb - usedGb, 0);
+  const hasData = totalGb > 0;
   return (
     <Doughnut
       data={{
-        labels: ["Used", "Free"],
+        labels: hasData ? ["Used", "Free"] : ["No disk metrics"],
         datasets: [
           {
-            data: [1264, 667],
-            backgroundColor: ["#1976D2", "#E3F2FD"],
+            data: hasData ? [usedGb, free] : [1],
+            backgroundColor: hasData ? ["#1976D2", "#E3F2FD"] : ["#E2E8F0"],
             borderWidth: 0,
           },
         ],
@@ -109,6 +111,7 @@ export function PortPieChart({
 
 export function SystemChart() {
   const labels = Array.from({ length: 20 }, (_, i) => i);
+  const empty = Array.from({ length: 20 }, () => 0);
   return (
     <Line
       data={{
@@ -116,7 +119,7 @@ export function SystemChart() {
         datasets: [
           {
             label: "CPU %",
-            data: Array.from({ length: 20 }, () => Math.floor(Math.random() * 45) + 10),
+            data: empty,
             borderColor: "#E65100",
             borderWidth: 1.5,
             tension: 0.4,
@@ -124,7 +127,7 @@ export function SystemChart() {
           },
           {
             label: "RAM %",
-            data: Array.from({ length: 20 }, () => Math.floor(Math.random() * 26) + 40),
+            data: empty,
             borderColor: "#1976D2",
             borderWidth: 1.5,
             tension: 0.4,

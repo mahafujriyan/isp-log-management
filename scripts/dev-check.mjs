@@ -6,8 +6,9 @@ import http from "node:http";
 
 const CHECKS = [
   { name: "Marketing", url: "http://127.0.0.1:3000/" },
-  { name: "Super Admin", url: "http://127.0.0.1:3001/" },
-  { name: "Operator", url: "http://127.0.0.1:3002/" },
+  { name: "Super Admin", url: "http://127.0.0.1:3001/admin/login" },
+  { name: "Operator login", url: "http://127.0.0.1:3002/auth/login" },
+  { name: "Operator auth API", url: "http://127.0.0.1:3002/api/auth/session" },
 ];
 
 function ping(url) {
@@ -44,9 +45,9 @@ console.log(
 ✗ কিছু portal চালু নেই।
 
 Fix:
-  1. npm run dev:stop
-  2. npm run dev          ← terminal বন্ধ করবেন না!
-  3. npm run dev:check    ← আবার check
+  1. npm run dev:reset     ← kill ports + clear cache + sync env
+  2. npm run dev           ← terminal বন্ধ করবেন না!
+  3. npm run dev:check     ← আবার check
   4. npm run dev:open     ← browser tab খুলবে
 
 মনে রাখুন — ৩টা আলাদা port:

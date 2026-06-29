@@ -13,6 +13,7 @@
     "dev:open": "node scripts/open-dev-urls.mjs",
     "dev:check": "node scripts/dev-check.mjs",
     "dev:stop": "node scripts/kill-dev-ports.mjs",
+    "dev:reset": "node scripts/reset-dev.mjs",
     "dev:sync-env": "node scripts/sync-env.mjs",
     "dev:marketing": "npm run dev -w @isp/marketing",
     "dev:admin": "npm run dev -w @isp/super-admin",
@@ -43,11 +44,15 @@
     "pm2:restart": "pm2 restart deploy/ecosystem.config.cjs",
     "pm2:logs": "pm2 logs",
     "test:log-ingest": "node scripts/test-log-ingest.mjs",
-    "db:vps": "node scripts/apply-all-migrations.mjs",
-    "db:migrate": "node scripts/apply-all-migrations.mjs",
+    "db:prisma:start": "node scripts/prisma-postgres-start.mjs",
+    "db:prisma:stop": "node scripts/prisma-postgres-stop.mjs",
+    "db:prisma:init": "node scripts/prisma-postgres-start.mjs && npm run db:setup && npm run db:migrate",
+    "db:migrate": "node database/scripts/migrate.mjs",
     "db:device-credentials": "node scripts/apply-device-credentials.mjs",
     "db:init": "cd scripts && psql -U loguser -d isp_logserver -f init-db.sql",
-    "db:setup": "node scripts/setup-database.mjs",
+    "db:setup": "node database/scripts/setup.mjs",
+    "db:setup:schema-only": "node database/scripts/setup.mjs --no-seeds",
+    "db:purge-demo": "node database/scripts/purge-demo-data.mjs",
     "db:demo": "node scripts/apply-demo-migrations.mjs",
     "db:company-branding": "node scripts/apply-company-branding.mjs",
     "db:syslog": "node scripts/apply-mikrotik-syslog.mjs",
@@ -92,6 +97,8 @@
     "tsx": "^4.20.3",
     "typescript": "^5",
     "turbo": "^2.5.4",
-    "concurrently": "^9.2.0"
+    "concurrently": "^9.2.0",
+    "prisma": "^7.8.0",
+    "dotenv": "^16.6.1"
   }
 }

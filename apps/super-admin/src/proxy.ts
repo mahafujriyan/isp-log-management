@@ -4,7 +4,7 @@ import { ROLES } from "@isp/core/constants/roles.constants";
 import { auth } from "@isp/auth/edge";
 import { NextResponse } from "next/server";
 
-/** Super Admin portal — admin.cyberlink.com */
+/** Super Admin portal — localhost:3001 / admin.cyberlink.com */
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;

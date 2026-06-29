@@ -31,7 +31,7 @@ function loadEnv() {
 
 loadEnv();
 
-const base = process.env.NEXT_PUBLIC_APP_URL || process.env.AUTH_URL || "http://localhost:3000";
+const base = process.env.NEXT_PUBLIC_OPERATOR_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.AUTH_URL || "http://localhost:3002";
 const secret = process.env.INGEST_SECRET || "local-dev-secret-123";
 const routerIp = process.env.TEST_ROUTER_IP || "160.187.175.26";
 

@@ -31,15 +31,10 @@ npm run test:log-ingest
 ```
 Dashboard → Logs → Last 7 days → tenant_001
 
-## Log format (parser accepts)
+## Log format (dashboard shows this exact ISP format)
 ```
-pppoe_user=username@isp
-mac_address=AA:BB:CC:DD:EE:FF
-user_ip=10.x.x.x
-nat_ip=160.187.175.26
-src-address=10.x.x.x:51234
-dst-address=8.8.8.8:53
-protocol=udp|tcp
+pppoe_user=username@isp mac_address=AA:BB:CC:DD:EE:FF user_ip=10.x.x.x user_port=51234 nat_ip=160.187.175.26 visited_ip=8.8.8.8 visited_port=53 src-address=10.x.x.x:51234 dst-address=8.8.8.8:53 protocol=udp
 ```
 
-MikroTik firewall log-prefix `FWD:` and `NAT:` also supported.
+MikroTik `clc-production.rsc` logs PPPoE login in this format automatically.
+Firewall forward logs (`FWD:` / `src-address` / `dst-address`) are parsed and enriched with PPPoE user from session DB.

@@ -78,3 +78,5 @@ temp/
 
 # --- optional local overrides ---
 *.local.json
+
+/src/generated/prisma

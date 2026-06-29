@@ -7,7 +7,6 @@ import type {
 } from "@isp/core/types/btrc.types";
 import { BTRC_CONFIG, getDefaultBtrcConfig } from "@isp/core/config/btrc.config";
 import { db } from "@isp/core/lib/database";
-import { generateMockLogEntry } from "@isp/core/services/mock-data.service";
 import { getLogsAcrossTenants } from "@isp/core/services/syslog.service";
 import {
   generateBatchId,
@@ -135,7 +134,7 @@ export async function fetchLogsForBtrc(
     // fall through to mock
   }
 
-  return Array.from({ length: Math.min(limit, 200) }, () => generateMockLogEntry());
+  return [];
 }
 
 export async function buildBtrcRecords(

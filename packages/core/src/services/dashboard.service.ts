@@ -1,6 +1,5 @@
 import { db } from "@isp/core/lib/database";
 import type { DashboardMetrics } from "@isp/core/types";
-import { getDashboardMetrics } from "@isp/core/services/mock-data.service";
 import { getActiveTenantSchemas, getTenantById } from "@isp/core/services/tenant.service";
 import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
 
@@ -43,7 +42,7 @@ async function metricsForSchema(schema: string): Promise<{
 
 export async function getLiveDashboardMetrics(
   tenantId?: number
-): Promise<DashboardMetrics & { source: "database" | "mock" }> {
+): Promise<DashboardMetrics & { source: "database" }> {
   try {
     if (tenantId) {
       const tenant = await getTenantById(tenantId);
@@ -52,9 +51,9 @@ export async function getLiveDashboardMetrics(
       return {
         totalLogs: m.logsToday,
         activeUsers: m.activeUsers,
-        devices: m.devices || 2,
-        diskUsedGb: 1264,
-        diskTotalGb: 1931,
+        devices: m.devices,
+        diskUsedGb: 0,
+        diskTotalGb: 0,
         source: "database",
       };
     }
@@ -70,12 +69,19 @@ export async function getLiveDashboardMetrics(
     return {
       totalLogs,
       activeUsers,
-      devices: devices || 2,
-      diskUsedGb: 1264,
-      diskTotalGb: 1931,
+      devices,
+      diskUsedGb: 0,
+      diskTotalGb: 0,
       source: "database",
     };
   } catch {
-    return { ...getDashboardMetrics(), source: "mock" };
+    return {
+      totalLogs: 0,
+      activeUsers: 0,
+      devices: 0,
+      diskUsedGb: 0,
+      diskTotalGb: 0,
+      source: "database",
+    };
   }
 }

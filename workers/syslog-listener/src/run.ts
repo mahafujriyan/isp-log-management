@@ -66,6 +66,7 @@ async function handleRawMessage(raw: string, routerIp?: string) {
       processed += 1;
       io?.emit("log:new", {
         ...result.parsed,
+        raw_message: result.parsed.raw_message,
         schema_name: result.ingest?.schema_name,
         session_log_id: result.ingest?.session_log_id,
       });

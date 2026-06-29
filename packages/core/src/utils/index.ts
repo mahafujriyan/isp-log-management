@@ -33,4 +33,5 @@ export {
   parseMikroTikLog,
   logEntryToMikroTikLog,
   aggregateMetrics,
+  formatIspLogLine,
 } from "@isp/core/utils/mikrotik-parser.utils";

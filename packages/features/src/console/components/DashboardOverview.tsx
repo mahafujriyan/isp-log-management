@@ -3,16 +3,24 @@
 import { MetricCard, ChartCard, PanelCard } from "@isp/features/console/components/MetricCard";
 import { DiskChart, HourlyLogsChart, PortPieChart } from "@isp/features/console/components/DashboardCharts";
 import { HardDrive, Router, ScrollText, Users } from "lucide-react";
-import type { getPortDistribution } from "@isp/core/services/mock-data.service";
 
 interface DashboardOverviewProps {
   metrics: {
     totalLogs: number;
     activeUsers: number;
     devices: number;
+    diskUsedGb?: number;
+    diskTotalGb?: number;
   };
   hourlyData: number[];
-  portData: ReturnType<typeof getPortDistribution>;
+  portData: {
+    https: number;
+    http: number;
+    p8080: number;
+    p9998: number;
+    dns: number;
+    other: number;
+  };
   topUsers: [string, number][];
   topIps: [string, number][];
 }
@@ -42,7 +50,13 @@ export function DashboardOverview({
           color="green"
           icon={Users}
         />
-        <MetricCard label="Disk used" value="1264 GB" sub="of 1931 GB" color="amber" icon={HardDrive} />
+        <MetricCard
+          label="Disk used"
+          value={metrics.diskTotalGb ? `${metrics.diskUsedGb ?? 0} GB` : "—"}
+          sub={metrics.diskTotalGb ? `of ${metrics.diskTotalGb} GB` : "not configured"}
+          color="amber"
+          icon={HardDrive}
+        />
         <MetricCard
           label="Devices"
           value={`${metrics.devices} / ${metrics.devices}`}
@@ -54,7 +68,7 @@ export function DashboardOverview({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard title="Disk partition">
-          <DiskChart />
+          <DiskChart usedGb={metrics.diskUsedGb} totalGb={metrics.diskTotalGb} />
         </ChartCard>
         <ChartCard title="Logs / hour">
           <HourlyLogsChart data={hourlyData} />
@@ -115,34 +129,28 @@ export function DashboardOverview({
       </div>
 
       <PanelCard title="Disk partitions">
-        {[
-          { path: "/mnt/data/mysql", label: "log partition", used: 1264, total: 1931, pct: 65, warn: true },
-          { path: "/var/lib/postgresql", label: "", used: 128, total: 256, pct: 50, warn: false },
-        ].map((d) => (
-          <div key={d.path} className="mb-3 last:mb-0">
+        {metrics.diskTotalGb ? (
+          <div className="mb-3">
             <div className="mb-1 flex justify-between text-[12px]">
               <span>
-                <b>{d.path}</b>
-                {d.label ? ` — ${d.label}` : ""}
+                <b>/mnt/data/logs</b> — log partition
               </span>
               <span className="text-[#64748B]">
-                {d.used} GB / {d.total} GB
+                {metrics.diskUsedGb ?? 0} GB / {metrics.diskTotalGb} GB
               </span>
             </div>
             <div className="h-2.5 overflow-hidden rounded-full bg-[#F1F5F9]">
               <div
-                className={`h-full rounded-full ${d.warn ? "bg-[#E65100]" : "bg-[#1976D2]"}`}
-                style={{ width: `${d.pct}%` }}
+                className="h-full rounded-full bg-[#1976D2]"
+                style={{
+                  width: `${Math.min(100, Math.round(((metrics.diskUsedGb ?? 0) / metrics.diskTotalGb) * 100))}%`,
+                }}
               />
             </div>
-            <div className="mt-0.5 flex justify-between text-[11px] text-[#64748B]">
-              <span>{d.pct}% used</span>
-              <span className={d.warn ? "text-[#E65100]" : "text-[#2E7D32]"}>
-                {d.warn ? "Warning" : "Healthy"}
-              </span>
-            </div>
           </div>
-        ))}
+        ) : (
+          <p className="text-[12px] text-[#64748B]">No disk metrics configured — connect server monitoring for live data.</p>
+        )}
       </PanelCard>
     </div>
   );

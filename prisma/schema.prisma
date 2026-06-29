@@ -1,0 +1,7 @@
+// Prisma Postgres — local dev server only.
+// Authoritative schema: database/schema/ (see database/SCHEMA.md)
+// App runtime uses `pg` + SQL, not Prisma Client.
+
+datasource db {
+  provider = "postgresql"
+}

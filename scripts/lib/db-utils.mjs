@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import pg from "pg";
+import { resolvePgDatabaseUrl } from "./prisma-db-url.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.join(__dirname, "../..");
@@ -30,11 +31,12 @@ function loadEnvFile(filePath) {
 
 export function getDatabaseUrl() {
   loadEnvFiles();
-  const url = process.env.DATABASE_URL;
+  const url = resolvePgDatabaseUrl(process.env.DATABASE_URL);
   if (!url) {
-    console.error("DATABASE_URL is required (.env.production.local)");
+    console.error("DATABASE_URL is required (.env.local at repo root)");
     process.exit(1);
   }
+  process.env.DATABASE_URL = url;
   return url;
 }
 

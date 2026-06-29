@@ -42,11 +42,13 @@ export interface LogEntry {
   pppoe_user: string;
   mac: string;
   user_ip: string;
+  user_port?: number;
   nat_ip: string;
+  nat_port?: number;
   visited_ip: string;
   port: number;
-  nat_port?: number;
   protocol?: string;
+  raw_message?: string;
 }
 
 export interface Device {

@@ -50,8 +50,18 @@ function normalizeProtocol(proto: string): string {
   return proto.toUpperCase() || "TCP";
 }
 
+function splitIpPort(value: string): { ip: string; port: number | null } {
+  const trimmed = value.trim();
+  const colon = trimmed.lastIndexOf(":");
+  if (colon === -1) return { ip: trimmed, port: null };
+  const ip = trimmed.slice(0, colon);
+  const port = Number.parseInt(trimmed.slice(colon + 1), 10);
+  if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(ip)) return { ip: trimmed, port: null };
+  return { ip, port: Number.isNaN(port) ? null : port };
+}
+
 /** Parse raw syslog line (RFC3164 wrapper + MikroTik payload). */
-export function parseMikroTikSyslog(raw: string): ParsedMikroTikLog {
+export function parseMikroTikSyslog(raw: string, routerNatIp?: string): ParsedMikroTikLog {
   const syslog = parseRfc3164(raw);
   const payload = syslog.message || raw;
   const full = `${syslog.tag} ${payload}`.trim();
@@ -65,7 +75,7 @@ export function parseMikroTikSyslog(raw: string): ParsedMikroTikLog {
     /authenticated.*user[=\s]+([^\s,]+)/i,
   ]);
 
-  const mac = normalizeMac(
+  let mac = normalizeMac(
     pick(full, [
       /mac[_-]?address[=:]([^\s,;]+)/i,
       /src-mac[=:]([^\s,;]+)/i,
@@ -74,53 +84,75 @@ export function parseMikroTikSyslog(raw: string): ParsedMikroTikLog {
     ])
   );
 
-  const userIp = pick(full, [
+  const userIpRaw = pick(full, [
     /user_ip[=:]([^\s,;]+)/i,
     /private[_-]?ip[=:]([^\s,;]+)/i,
     /src-address[=:]([^\s,;]+)/i,
-    /\bsrc[=:](\d{1,3}(?:\.\d{1,3}){3})/i,
-    /from\s+(\d{1,3}(?:\.\d{1,3}){3})/i,
+    /\bsrc[=:](\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?)/i,
+    /from\s+(\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?)/i,
   ]);
+  const userSplit = splitIpPort(userIpRaw);
+  let userIp = userSplit.ip;
 
-  const natIp = pick(full, [
-    /nat[_-]?ip[=:]([^\s,;]+)/i,
-    /public[_-]?ip[=:]([^\s,;]+)/i,
-    /to-address[=:]([^\s,;]+)/i,
-    /nat:\s*(\d{1,3}(?:\.\d{1,3}){3})/i,
-  ]);
+  const natIp =
+    pick(full, [
+      /nat[_-]?ip[=:]([^\s,;]+)/i,
+      /public[_-]?ip[=:]([^\s,;]+)/i,
+      /to-address[=:]([^\s,;]+)/i,
+      /nat:\s*(\d{1,3}(?:\.\d{1,3}){3})/i,
+    ]) || routerNatIp || "";
 
-  const visitedIp = pick(full, [
+  const visitedIpRaw = pick(full, [
     /visited[_-]?ip[=:]([^\s,;]+)/i,
     /dest[_-]?ip[=:]([^\s,;]+)/i,
     /dst-address[=:]([^\s,;]+)/i,
-    /\bdst[=:](\d{1,3}(?:\.\d{1,3}){3})/i,
-    /->\s*(\d{1,3}(?:\.\d{1,3}){3})/,
+    /\bdst[=:](\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?)/i,
+    /->\s*(\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?)/,
   ]);
+  const visitedSplit = splitIpPort(visitedIpRaw);
+  let visitedIp = visitedSplit.ip;
 
-  const userPort = pickInt(full, [
-    /user[_-]?port[=:](\d+)/i,
-    /src-port[=:](\d+)/i,
-    /sport[=:](\d+)/i,
-    /\bsrc[=:]\d{1,3}(?:\.\d{1,3}){3}:(\d+)/i,
-  ]);
+  let userPort =
+    userSplit.port ??
+    pickInt(full, [
+      /user[_-]?port[=:](\d+)/i,
+      /src-port[=:](\d+)/i,
+      /sport[=:](\d+)/i,
+    ]);
 
-  const natPort = pickInt(full, [
+  let natPort = pickInt(full, [
     /nat[_-]?port[=:](\d+)/i,
     /public[_-]?port[=:](\d+)/i,
     /to-port[=:](\d+)/i,
   ]);
 
-  const visitedPort = pickInt(full, [
-    /visited[_-]?port[=:](\d+)/i,
-    /dest[_-]?port[=:](\d+)/i,
-    /dst-port[=:](\d+)/i,
-    /dport[=:](\d+)/i,
-    /\bdst[=:]\d{1,3}(?:\.\d{1,3}){3}:(\d+)/i,
-  ]);
+  let visitedPort =
+    visitedSplit.port ??
+    pickInt(full, [
+      /visited[_-]?port[=:](\d+)/i,
+      /dest[_-]?port[=:](\d+)/i,
+      /dst-port[=:](\d+)/i,
+      /dport[=:](\d+)/i,
+    ]);
 
-  const protocol = normalizeProtocol(
+  let protocol = normalizeProtocol(
     pick(full, [/protocol[=:]([^\s,;]+)/i, /\bproto[=:]([^\s,;]+)/i, /\b(tcp|udp|icmp)\b/i])
   );
+
+  const arrow = full.match(
+    /(\d{1,3}(?:\.\d{1,3}){3}):(\d+)\s*->\s*(\d{1,3}(?:\.\d{1,3}){3}):(\d+)/
+  );
+  if (arrow) {
+    if (!userIp) userIp = arrow[1];
+    if (userPort == null) userPort = Number.parseInt(arrow[2], 10);
+    if (!visitedIp) visitedIp = arrow[3];
+    if (visitedPort == null) visitedPort = Number.parseInt(arrow[4], 10);
+  }
+
+  if (!mac) {
+    const srcMac = pick(full, [/src-mac\s+([0-9A-Fa-f:]{11,17})/i]);
+    if (srcMac) mac = normalizeMac(srcMac);
+  }
 
   const sourceIp = extractSourceIp(syslog.hostname, full);
 
@@ -128,11 +160,11 @@ export function parseMikroTikSyslog(raw: string): ParsedMikroTikLog {
     timestamp: syslog.timestamp ?? new Date(),
     pppoe_user: pppoeUser,
     mac_address: mac,
-    user_ip: userIp,
+    user_ip: userIp || (full.match(/(\d{1,3}(?:\.\d{1,3}){3}):\d+\s*->/)?.[1] ?? ""),
     user_port: userPort,
     nat_ip: natIp,
     nat_port: natPort,
-    visited_ip: visitedIp,
+    visited_ip: visitedIp || (full.match(/->\s*(\d{1,3}(?:\.\d{1,3}){3}):\d+/)?.[1] ?? ""),
     visited_port: visitedPort,
     protocol,
     log_topic: syslog.tag || "unknown",

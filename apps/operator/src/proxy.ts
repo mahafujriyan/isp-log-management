@@ -4,7 +4,7 @@ import { ROLES } from "@isp/core/constants/roles.constants";
 import { auth } from "@isp/auth/edge";
 import { NextResponse } from "next/server";
 
-/** Operator portal + legacy dashboard — app.cyberlink.com */
+/** Operator portal + legacy dashboard — localhost:3002 / app.cyberlink.com */
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;

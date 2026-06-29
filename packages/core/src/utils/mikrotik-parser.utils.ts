@@ -2,6 +2,40 @@ import { parseMikroTikSyslog } from "@isp/core/lib/parser";
 import type { LogEntry } from "@isp/core/types/entities.types";
 import type { MikroTikLog, ParsedMetrics } from "@isp/core/types/metrics.types";
 
+export function formatIspLogLine(
+  entry: Partial<LogEntry> & {
+    mac_address?: string;
+    user_port?: number | null;
+    visited_port?: number | null;
+    raw_message?: string;
+  }
+): string {
+  if (entry.raw_message?.includes("pppoe_user=")) {
+    const kv = entry.raw_message.match(/pppoe_user=[^\n]+/)?.[0];
+    if (kv) return kv;
+  }
+
+  const parts: string[] = [];
+  if (entry.pppoe_user) parts.push(`pppoe_user=${entry.pppoe_user}`);
+  const mac = entry.mac ?? entry.mac_address;
+  if (mac) parts.push(`mac_address=${mac}`);
+  if (entry.user_ip) parts.push(`user_ip=${entry.user_ip}`);
+  if (entry.user_port != null) parts.push(`user_port=${entry.user_port}`);
+  if (entry.nat_ip) parts.push(`nat_ip=${entry.nat_ip}`);
+  if (entry.nat_port != null) parts.push(`nat_port=${entry.nat_port}`);
+  if (entry.user_ip && entry.user_port != null) {
+    parts.push(`src-address=${entry.user_ip}:${entry.user_port}`);
+  }
+  if (entry.visited_ip) parts.push(`visited_ip=${entry.visited_ip}`);
+  const destPort = entry.port ?? entry.visited_port;
+  if (destPort != null) parts.push(`visited_port=${destPort}`);
+  if (entry.visited_ip && destPort != null) {
+    parts.push(`dst-address=${entry.visited_ip}:${destPort}`);
+  }
+  if (entry.protocol) parts.push(`protocol=${entry.protocol.toLowerCase()}`);
+  return parts.join(" ");
+}
+
 export function parseMikroTikLog(rawLog: string): MikroTikLog {
   const parsed = parseMikroTikSyslog(rawLog);
   return {
