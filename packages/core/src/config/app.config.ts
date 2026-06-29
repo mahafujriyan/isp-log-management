@@ -18,6 +18,6 @@ export const DB_CONFIG = {
   pool: {
     max: Number(process.env.DATABASE_POOL_MAX) || (process.env.NODE_ENV === "production" ? 3 : 20),
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 2_000,
+    connectionTimeoutMillis: 10_000,
   },
 } as const;

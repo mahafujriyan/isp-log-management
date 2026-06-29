@@ -58,5 +58,11 @@ const text = await res.text();
 console.log("Status:", res.status);
 console.log(text);
 
-if (!res.ok) process.exit(1);
+if (!res.ok) {
+  if (res.status === 403) {
+    console.error("\n403 — check x-ingest-secret matches INGEST_SECRET in .env.production.local");
+    console.error("    On VPS: grep INGEST_SECRET .env.production.local");
+  }
+  process.exit(1);
+}
 console.log("\nOK — check dashboard Logs tab (Last 7 days, tenant_001)");

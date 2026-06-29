@@ -1,3 +1,4 @@
+import type { Session } from "next-auth";
 import { auth } from "@isp/auth";
 import { env } from "@isp/core/config/env.config";
 import { PERMISSIONS, isDemoAccount, type Permission } from "@isp/core/constants/roles.constants";
@@ -31,19 +32,44 @@ export async function requirePermission(permission: Permission) {
   return requireSessionRoles(PERMISSIONS[permission]);
 }
 
-export async function canIngestLogs(request: Request) {
+export async function canIngestLogs(request: Request): Promise<{
+  allowed: boolean;
+  session: Session | null;
+  reason?: string;
+}> {
   const session = await auth();
   const role = session?.user?.role;
   if (session && hasRole(role, PERMISSIONS.LOGS_INGEST)) {
-    return { allowed: true as const, session };
+    return { allowed: true, session };
+  }
+
+  const serverSecret = env.ingest.secret;
+  if (!serverSecret) {
+    return {
+      allowed: false,
+      session: null,
+      reason: "INGEST_SECRET is not set in server env (.env.production.local)",
+    };
   }
 
   const secret = request.headers.get("x-ingest-secret");
-  if (secret && env.ingest.secret && secret === env.ingest.secret) {
-    return { allowed: true as const, session: null };
+  if (!secret) {
+    return {
+      allowed: false,
+      session: null,
+      reason: "Missing x-ingest-secret header",
+    };
   }
 
-  return { allowed: false as const, session: null };
+  if (secret !== serverSecret) {
+    return {
+      allowed: false,
+      session: null,
+      reason: "Invalid x-ingest-secret (must match INGEST_SECRET on server)",
+    };
+  }
+
+  return { allowed: true, session: null };
 }
 
 /** Demo users are locked to their sandbox tenant; production users may pass tenant_id. */

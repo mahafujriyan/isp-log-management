@@ -22,7 +22,7 @@ export async function GET() {
       services: [
         { name: "PostgreSQL", detail: String(dbResult.rows[0].pg_version).split(",")[0], status: "running" },
         { name: "Next.js App", detail: process.env.NODE_ENV ?? "development", status: "running" },
-        { name: "Syslog Ingest API", detail: "POST /api/logs", status: "running" },
+        { name: "Syslog Ingest API", detail: "POST /api/logs/receive", status: "running" },
         { name: "Auth (NextAuth)", detail: "JWT sessions", status: "running" },
       ],
     });

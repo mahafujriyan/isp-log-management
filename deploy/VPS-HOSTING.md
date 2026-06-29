@@ -471,7 +471,10 @@ pm2 status
 | `isp-syslog-listener errored` | `SOCKET_PORT=3003` (3001 নয়); `pm2 restart isp-syslog-listener` |
 | Login হয়, logout হয় না | IP mode: `AUTH_COOKIE_SECURE=false` |
 | `:3000/admin` 404 | Admin = **:3001** |
-| MikroTik log আসে না | `ufw allow 514/udp`; router remote = `160.187.175.30:514` |
+| Log ingest not working | 1) URL must be `/api/logs/receive` (full word) 2) Header `x-ingest-secret` = `INGEST_SECRET` from `.env.production.local` 3) Header `Content-Type: text/plain` 4) `GET /api/logs/receive` for diagnostics 5) MikroTik uses **UDP 514** → `isp-syslog-listener` (not HTTP) |
+| Ingest 403 Forbidden | `INGEST_SECRET` missing or header mismatch — `npm run test:vps-ingest` on VPS |
+| Ingest 400 Unknown router | `npm run db:sync-routers` + header `x-router-ip: 160.187.175.26` |
+| Site not reachable | `pm2 status` + `ufw allow 3002/tcp` |
 | nginx 502 | `pm2 logs isp-operator` |
 | Demo/fake logs দেখায় | `npm run db:purge-demo` + app rebuild |
 | Dashboard storage `—` | `DATABASE_URL` ঠিক আছে কিনা; `PRISMA_PLAN` / `DATABASE_STORAGE_LIMIT_MB` set করুন |

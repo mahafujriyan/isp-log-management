@@ -44,6 +44,7 @@
     "pm2:restart": "pm2 restart deploy/ecosystem.config.cjs",
     "pm2:logs": "pm2 logs",
     "test:log-ingest": "node scripts/test-log-ingest.mjs",
+    "test:vps-ingest": "node scripts/vps-ingest-check.mjs",
     "db:prisma:start": "node scripts/prisma-postgres-start.mjs",
     "db:prisma:stop": "node scripts/prisma-postgres-stop.mjs",
     "db:prisma:init": "node scripts/prisma-postgres-start.mjs && npm run db:setup && npm run db:migrate",
