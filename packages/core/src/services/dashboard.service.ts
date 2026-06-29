@@ -1,5 +1,6 @@
 import { db } from "@isp/core/lib/database";
 import type { DashboardMetrics } from "@isp/core/types";
+import { getDatabaseStorageMetrics } from "@isp/core/services/database-storage.service";
 import { getActiveTenantSchemas, getTenantById } from "@isp/core/services/tenant.service";
 import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
 
@@ -44,6 +45,8 @@ export async function getLiveDashboardMetrics(
   tenantId?: number
 ): Promise<DashboardMetrics & { source: "database" }> {
   try {
+    const storage = await getDatabaseStorageMetrics().catch(() => null);
+
     if (tenantId) {
       const tenant = await getTenantById(tenantId);
       if (!tenant) throw new Error("Tenant not found");
@@ -52,8 +55,11 @@ export async function getLiveDashboardMetrics(
         totalLogs: m.logsToday,
         activeUsers: m.activeUsers,
         devices: m.devices,
-        diskUsedGb: 0,
-        diskTotalGb: 0,
+        diskUsedGb: storage?.diskUsedGb ?? 0,
+        diskTotalGb: storage?.diskTotalGb ?? 0,
+        storageUsedMb: storage?.storageUsedMb,
+        storageLimitMb: storage?.storageLimitMb,
+        storageProvider: storage?.storageProvider,
         source: "database",
       };
     }
@@ -70,8 +76,11 @@ export async function getLiveDashboardMetrics(
       totalLogs,
       activeUsers,
       devices,
-      diskUsedGb: 0,
-      diskTotalGb: 0,
+      diskUsedGb: storage?.diskUsedGb ?? 0,
+      diskTotalGb: storage?.diskTotalGb ?? 0,
+      storageUsedMb: storage?.storageUsedMb,
+      storageLimitMb: storage?.storageLimitMb,
+      storageProvider: storage?.storageProvider,
       source: "database",
     };
   } catch {

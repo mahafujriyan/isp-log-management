@@ -32,16 +32,16 @@ const chartOptions = {
   plugins: { legend: { display: false } },
 };
 
-export function DiskChart({ usedGb = 0, totalGb = 0 }: { usedGb?: number; totalGb?: number }) {
-  const free = Math.max(totalGb - usedGb, 0);
-  const hasData = totalGb > 0;
+export function DiskChart({ usedMb = 0, limitMb = 0 }: { usedMb?: number; limitMb?: number }) {
+  const freeMb = Math.max(limitMb - usedMb, 0);
+  const hasData = limitMb > 0;
   return (
     <Doughnut
       data={{
-        labels: hasData ? ["Used", "Free"] : ["No disk metrics"],
+        labels: hasData ? ["Used", "Free"] : ["No storage data"],
         datasets: [
           {
-            data: hasData ? [usedGb, free] : [1],
+            data: hasData ? [usedMb, freeMb] : [1],
             backgroundColor: hasData ? ["#1976D2", "#E3F2FD"] : ["#E2E8F0"],
             borderWidth: 0,
           },

@@ -52,6 +52,9 @@ export function DashboardApp() {
     devices: 0,
     diskUsedGb: 0,
     diskTotalGb: 0,
+    storageUsedMb: 0,
+    storageLimitMb: 0,
+    storageProvider: "",
   });
   const [hourlyData, setHourlyData] = useState<number[]>(Array(24).fill(0));
   const [portData, setPortData] = useState(EMPTY_PORT_DATA);
@@ -79,6 +82,9 @@ export function DashboardApp() {
           devices: m.devices ?? prev.devices,
           diskUsedGb: m.diskUsedGb ?? prev.diskUsedGb,
           diskTotalGb: m.diskTotalGb ?? prev.diskTotalGb,
+          storageUsedMb: m.storageUsedMb ?? prev.storageUsedMb,
+          storageLimitMb: m.storageLimitMb ?? prev.storageLimitMb,
+          storageProvider: m.storageProvider ?? prev.storageProvider,
         }));
       })
       .catch(() => {});

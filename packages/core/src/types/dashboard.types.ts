@@ -4,6 +4,9 @@ export interface DashboardMetrics {
   devices: number;
   diskUsedGb: number;
   diskTotalGb: number;
+  storageUsedMb?: number;
+  storageLimitMb?: number;
+  storageProvider?: string;
 }
 
 export type DashboardPageId =

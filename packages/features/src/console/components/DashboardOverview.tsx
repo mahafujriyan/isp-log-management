@@ -3,6 +3,7 @@
 import { MetricCard, ChartCard, PanelCard } from "@isp/features/console/components/MetricCard";
 import { DiskChart, HourlyLogsChart, PortPieChart } from "@isp/features/console/components/DashboardCharts";
 import { HardDrive, Router, ScrollText, Users } from "lucide-react";
+import { formatStorageMb, formatStoragePair } from "@isp/features/console/utils/format-storage";
 
 interface DashboardOverviewProps {
   metrics: {
@@ -11,6 +12,9 @@ interface DashboardOverviewProps {
     devices: number;
     diskUsedGb?: number;
     diskTotalGb?: number;
+    storageUsedMb?: number;
+    storageLimitMb?: number;
+    storageProvider?: string;
   };
   hourlyData: number[];
   portData: {
@@ -32,6 +36,12 @@ export function DashboardOverview({
   topUsers,
   topIps,
 }: DashboardOverviewProps) {
+  const usedMb = metrics.storageUsedMb ?? (metrics.diskUsedGb ?? 0) * 1024;
+  const limitMb = metrics.storageLimitMb ?? (metrics.diskTotalGb ?? 0) * 1024;
+  const hasStorage = limitMb > 0;
+  const usagePct = hasStorage ? Math.min(100, Math.round((usedMb / limitMb) * 100)) : 0;
+  const provider = metrics.storageProvider || "Database";
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -51,11 +61,12 @@ export function DashboardOverview({
           icon={Users}
         />
         <MetricCard
-          label="Disk used"
-          value={metrics.diskTotalGb ? `${metrics.diskUsedGb ?? 0} GB` : "—"}
-          sub={metrics.diskTotalGb ? `of ${metrics.diskTotalGb} GB` : "not configured"}
+          label="DB storage"
+          value={hasStorage ? formatStorageMb(usedMb) : "—"}
+          sub={hasStorage ? `${formatStorageMb(limitMb)} limit · ${provider}` : "loading…"}
           color="amber"
           icon={HardDrive}
+          trend={hasStorage ? `${usagePct}% used` : undefined}
         />
         <MetricCard
           label="Devices"
@@ -67,8 +78,8 @@ export function DashboardOverview({
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ChartCard title="Disk partition">
-          <DiskChart usedGb={metrics.diskUsedGb} totalGb={metrics.diskTotalGb} />
+        <ChartCard title={`${provider} storage`}>
+          <DiskChart usedMb={usedMb} limitMb={limitMb} />
         </ChartCard>
         <ChartCard title="Logs / hour">
           <HourlyLogsChart data={hourlyData} />
@@ -128,28 +139,30 @@ export function DashboardOverview({
         </PanelCard>
       </div>
 
-      <PanelCard title="Disk partitions">
-        {metrics.diskTotalGb ? (
+      <PanelCard title="Database storage">
+        {hasStorage ? (
           <div className="mb-3">
             <div className="mb-1 flex justify-between text-[12px]">
               <span>
-                <b>/mnt/data/logs</b> — log partition
+                <b>{provider}</b> — live from <code className="text-[11px]">pg_database_size()</code>
               </span>
-              <span className="text-[#64748B]">
-                {metrics.diskUsedGb ?? 0} GB / {metrics.diskTotalGb} GB
-              </span>
+              <span className="text-[#64748B]">{formatStoragePair(usedMb, limitMb)}</span>
             </div>
             <div className="h-2.5 overflow-hidden rounded-full bg-[#F1F5F9]">
               <div
-                className="h-full rounded-full bg-[#1976D2]"
-                style={{
-                  width: `${Math.min(100, Math.round(((metrics.diskUsedGb ?? 0) / metrics.diskTotalGb) * 100))}%`,
-                }}
+                className={`h-full rounded-full ${usagePct >= 85 ? "bg-[#E65100]" : "bg-[#1976D2]"}`}
+                style={{ width: `${usagePct}%` }}
               />
+            </div>
+            <div className="mt-0.5 flex justify-between text-[11px] text-[#64748B]">
+              <span>{usagePct}% used</span>
+              <span className={usagePct >= 85 ? "text-[#E65100]" : "text-[#2E7D32]"}>
+                {usagePct >= 85 ? "Near limit" : "Healthy"}
+              </span>
             </div>
           </div>
         ) : (
-          <p className="text-[12px] text-[#64748B]">No disk metrics configured — connect server monitoring for live data.</p>
+          <p className="text-[12px] text-[#64748B]">Reading storage from Prisma Postgres…</p>
         )}
       </PanelCard>
     </div>
