@@ -10,8 +10,12 @@ ON CONFLICT (name) DO UPDATE SET is_featured = EXCLUDED.is_featured;
 
 -- Passwords: Admin@123456 / Super@Secure2026!
 INSERT INTO public.users (tenant_id, username, email, password_hash, role, is_active)
+SELECT t.id, 'operator1', 'admin@cyberlink.com', '$2b$10$GZSw4JvH0BN3Jz412OfisuGMkFIeGXLVIL3nxvYKu79hQTUFmGjJK', 'operator', TRUE
+FROM public.tenants t WHERE t.schema_name = 'tenant_001'
+ON CONFLICT (email) DO UPDATE SET tenant_id = EXCLUDED.tenant_id;
+
+INSERT INTO public.users (tenant_id, username, email, password_hash, role, is_active)
 VALUES
-  (NULL, 'operator1', 'admin@cyberlink.com', '$2b$10$GZSw4JvH0BN3Jz412OfisuGMkFIeGXLVIL3nxvYKu79hQTUFmGjJK', 'operator', TRUE),
   (NULL, 'admin', 'superadmin@cyberlink.com', '$2b$10$jyMQD2UASx09HitKx86Qr.IVZkMNIUFIdmaFm3NeABGbT27RBR3nW', 'super_admin', TRUE)
 ON CONFLICT (email) DO NOTHING;
 

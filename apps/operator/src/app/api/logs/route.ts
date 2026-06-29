@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, canIngestLogs, parsePositiveInt, requirePermission, resolveTenantScope } from "@isp/core/utils/api.utils";
-import { ingestLogs, resolveLogsQuery } from "@isp/core/services/syslog.service";
+import { ingestLogs, resolveLogsQuery, countTenantSyslogs } from "@isp/core/services/syslog.service";
 import type { IngestLogsInput } from "@isp/core/types";
 
 export async function GET(request: Request) {
@@ -34,6 +34,8 @@ export async function GET(request: Request) {
       nat_ip: natIp,
     });
 
+    const totalInDb = schema_name ? await countTenantSyslogs(schema_name) : 0;
+
     const format = searchParams.get("format");
     if (format === "raw") {
       return NextResponse.json(logs);
@@ -42,8 +44,13 @@ export async function GET(request: Request) {
     return NextResponse.json({
       logs,
       count: logs.length,
+      total_in_db: totalInDb,
       source,
       schema_name,
+      hint:
+        logs.length === 0 && totalInDb > 0
+          ? "Logs exist in database but outside selected time range — try All time"
+          : undefined,
     });
   } catch (error) {
     return apiError(

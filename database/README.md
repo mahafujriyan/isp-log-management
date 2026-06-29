@@ -1,6 +1,8 @@
 # Database layer
 
-PostgreSQL **schema-per-tenant** (`tenant_001`, `tenant_demo`, …). Runtime uses `pg` + SQL (not Prisma Client).
+PostgreSQL **schema-per-tenant** (`tenant_001`, …). Runtime uses `pg` + SQL (not Prisma Client).
+
+**Production:** PostgreSQL on VPS `127.0.0.1:5432/isp_logserver` — see [deploy/VPS-POSTGRES.md](../deploy/VPS-POSTGRES.md)
 
 ## Layout
 

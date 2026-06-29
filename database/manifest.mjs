@@ -54,4 +54,9 @@ export const MIGRATION_VERSIONS = [
     description: "Remove demo sandbox, fake devices, and sample syslog rows",
     files: [PURGE_DEMO_FILE],
   },
+  {
+    version: "004_fix_logs_display",
+    description: "Link operator to tenant_001 + fix stale log timestamps for dashboard",
+    files: ["schema/seeds/05_fix_log_timestamps.sql"],
+  },
 ];

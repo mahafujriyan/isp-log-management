@@ -1,6 +1,7 @@
 import { db } from "@isp/core/lib/database";
 import type { ParsedMikroTikLog } from "@isp/core/lib/parser";
 import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
+import { resolveLogTimestamp } from "@isp/core/utils/log-timestamp.utils";
 
 export interface RouterContext {
   tenant_id: number;
@@ -210,6 +211,7 @@ export async function ingestParsedLog(
   parsed: ParsedMikroTikLog
 ): Promise<IngestResult> {
   const schema = assertValidTenantSchema(schemaName);
+  const logTime = resolveLogTimestamp(parsed);
 
   const sessionRow = await db.getOne<{ id: number }>(
     `INSERT INTO "${schema}".session_logs
@@ -218,7 +220,7 @@ export async function ingestParsedLog(
      VALUES ($1, $2, $3, $4, $5::inet, $6, $7::inet, $8, $9::inet, $10, $11, $12, $13)
      RETURNING id`,
     [
-      parsed.timestamp,
+      logTime,
       routerId,
       parsed.pppoe_user || null,
       parsed.mac_address || null,
@@ -241,7 +243,7 @@ export async function ingestParsedLog(
      VALUES ($1, $2, $3, $4::inet, $5, $6::inet, $7, $8::inet, $9, $10, $11)
      RETURNING id`,
     [
-      parsed.timestamp,
+      logTime,
       parsed.pppoe_user || null,
       parsed.mac_address || null,
       parsed.user_ip || null,
@@ -264,7 +266,7 @@ export async function ingestParsedLog(
        VALUES ($1, $2, $3, $4::inet, $5::inet, $6, $7::inet, $8, $9, $10)
        RETURNING id`,
       [
-        parsed.timestamp,
+        logTime,
         parsed.pppoe_user,
         parsed.mac_address || "00:00:00:00:00:00",
         parsed.user_ip,

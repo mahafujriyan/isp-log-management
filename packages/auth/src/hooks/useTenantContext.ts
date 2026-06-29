@@ -1,9 +1,16 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Tenant } from "@isp/core/types";
 import { isDemoAccount } from "@isp/core/constants/roles.constants";
+
+function pickDefaultTenant(tenants: Tenant[], sessionTenantId?: number): number {
+  if (sessionTenantId) return sessionTenantId;
+  const production =
+    tenants.find((t) => t.schema_name === "tenant_001") ??
+    tenants.find((t) => !t.is_demo_sandbox) ??
+    tenants[0];
+  return production?.id ?? 1;
+}
 
 export function useTenantContext() {
   const { data: session } = useSession();
@@ -36,10 +43,14 @@ export function useTenantContext() {
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setTenants(data);
-          setTenantId(data[0].id);
+          setTenantId(pickDefaultTenant(data, sessionTenantId));
+        } else if (sessionTenantId) {
+          setTenantId(sessionTenantId);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (sessionTenantId) setTenantId(sessionTenantId);
+      })
       .finally(() => setLoading(false));
   }, [demo, sessionTenantId]);
 

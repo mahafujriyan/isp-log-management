@@ -25,18 +25,18 @@ cp deploy/env.vps.example .env.production.local
 nano .env.production.local
 ```
 
-**Fill:** `DATABASE_URL` (Prisma `pooled.db.prisma.io`), `AUTH_SECRET`, `INGEST_SECRET`, `SOCKET_PORT=3003`
+**Fill:** `DATABASE_URL` (`postgresql://isp_loguser@127.0.0.1:5432/isp_logserver`), `AUTH_SECRET`, `INGEST_SECRET`, `SOCKET_PORT=3003`
 
 ---
 
-## Step 2 — Database (Prisma cloud)
+## Step 2 — Database (VPS PostgreSQL)
 
 ```bash
+sudo bash deploy/vps-postgres-setup.sh   # first time
+npm run db:setup
 npm run db:migrate
 npm run db:sync-routers
 ```
-
-প্রথমবার fresh DB: `npm run db:setup` (production seeds — no demo)
 
 ---
 

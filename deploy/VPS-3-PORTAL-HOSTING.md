@@ -7,7 +7,7 @@
 | | |
 |--|--|
 | VPS | `160.187.175.30` — apps + syslog only |
-| Database | **Prisma Postgres** (`pooled.db.prisma.io`) — cloud |
+| Database | **PostgreSQL on VPS** `127.0.0.1:5432` |
 | MikroTik | `160.187.175.26` → UDP `514` |
 | Data | Production only — no demo sandbox |
 
@@ -25,10 +25,12 @@
 ```bash
 cd /opt/isp-log-management
 cp deploy/env.vps.example .env.production.local
-# edit: DATABASE_URL (Prisma), AUTH_SECRET, INGEST_SECRET
+# edit: DATABASE_URL from .db-credentials (postgresql://...@127.0.0.1:5432/isp_logserver)
 
 npm ci
-npm run db:migrate          # Prisma cloud DB
+sudo bash deploy/vps-postgres-setup.sh   # first time only
+npm run db:setup
+npm run db:migrate
 npm run build:all
 sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))
 npm run pm2:start && pm2 save

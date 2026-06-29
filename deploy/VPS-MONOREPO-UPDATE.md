@@ -35,8 +35,8 @@ NEXT_PUBLIC_API_URL=http://160.187.175.30:3002
 NEXT_PUBLIC_SOCKET_URL=http://160.187.175.30:3003
 AUTH_COOKIE_SECURE=false
 
-DATABASE_URL=postgres://...@pooled.db.prisma.io:5432/postgres?sslmode=require
-DATABASE_POOL_MAX=3
+DATABASE_URL=postgresql://isp_loguser:PASSWORD@127.0.0.1:5432/isp_logserver
+DATABASE_POOL_MAX=10
 AUTH_SECRET=...
 SOCKET_PORT=3003
 ```

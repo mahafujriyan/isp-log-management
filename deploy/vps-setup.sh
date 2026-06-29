@@ -38,7 +38,12 @@ cd "$APP_DIR"
 
 if [ ! -f .env.production.local ]; then
   cp deploy/env.vps.example .env.production.local
-  echo "!! Edit $APP_DIR/.env.production.local (Prisma DATABASE_URL, secrets) then re-run build"
+  echo "!! Edit $APP_DIR/.env.production.local — run: sudo bash deploy/vps-postgres-setup.sh first"
+  exit 1
+fi
+
+if ! command -v psql &>/dev/null; then
+  echo "!! PostgreSQL not installed — run: sudo bash deploy/vps-postgres-setup.sh"
   exit 1
 fi
 
@@ -60,6 +65,6 @@ echo "Super Admin:  http://160.187.175.30:3001"
 echo "Operator:     http://160.187.175.30:3002"
 echo "API health:   http://160.187.175.30:3002/api/health"
 echo "MikroTik:     remote syslog → 160.187.175.30:514"
-echo "Database:     Prisma cloud (DATABASE_URL in .env.production.local)"
+echo "Database:     postgresql://127.0.0.1:5432/isp_logserver"
 echo "Test:         npm run test:log-ingest"
 echo "Full guide:   deploy/VPS-HOSTING.md"

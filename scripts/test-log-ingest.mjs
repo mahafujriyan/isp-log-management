@@ -36,7 +36,7 @@ const secret = process.env.INGEST_SECRET || "local-dev-secret-123";
 const routerIp = process.env.TEST_ROUTER_IP || "160.187.175.26";
 
 const sampleLog =
-  `<30>Jun  8 15:00:01 CLC-SFP1-NAT firewall,info ` +
+  `<30>${new Date().toUTCString().replace(/^\w+, /, "").replace(" GMT", "")} CLC-SFP1-NAT firewall,info ` +
   `pppoe_user=clc_test@cyberlink mac_address=48:A9:8A:C2:28:BF ` +
   `user_ip=10.121.124.50 nat_ip=160.187.175.26 ` +
   `src-address=10.121.124.50:51234 dst-address=8.8.8.8:53 protocol=udp`;

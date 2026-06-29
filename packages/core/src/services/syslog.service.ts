@@ -102,6 +102,7 @@ export async function getTenantSyslogs(
   options: SyslogQueryOptions = {}
 ): Promise<LogEntry[]> {
   const schemaSafe = assertValidTenantSchema(schemaName);
+  const limit = options.limit ?? 100;
 
   try {
     const sessionTable = await db.getOne<{ exists: boolean }>(
@@ -112,15 +113,30 @@ export async function getTenantSyslogs(
       [schemaSafe]
     );
 
+    const merged: LogEntry[] = [];
+    const seen = new Set<string>();
+
+    const addRows = (rows: SyslogEntry[]) => {
+      for (const row of rows) {
+        const entry = syslogToLogEntry(row);
+        const key = `${entry.time}|${entry.pppoe_user}|${entry.user_ip}|${entry.visited_ip}|${entry.port}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(entry);
+      }
+    };
+
     if (sessionTable?.exists) {
-      const { sql, params } = buildSessionLogsSelect(schemaName, options);
-      const rows = await db.getMany<SyslogEntry>(sql, params);
-      if (rows.length > 0) return rows.map(syslogToLogEntry);
+      const { sql, params } = buildSessionLogsSelect(schemaName, { ...options, limit });
+      addRows(await db.getMany<SyslogEntry>(sql, params));
     }
 
-    const { sql, params } = buildSyslogSelect(schemaName, options);
-    const rows = await db.getMany<SyslogEntry>(sql, params);
-    return rows.map(syslogToLogEntry);
+    const { sql, params } = buildSyslogSelect(schemaName, { ...options, limit });
+    addRows(await db.getMany<SyslogEntry>(sql, params));
+
+    return merged
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, limit);
   } catch (err) {
     console.error(`[logs] query failed for ${schemaName}:`, err instanceof Error ? err.message : err);
     return [];
@@ -228,10 +244,13 @@ export async function resolveLogsQuery(params: {
 export async function countTenantSyslogs(schemaName: string): Promise<number> {
   try {
     const schema = assertValidTenantSchema(schemaName);
-    const row = await db.getOne<{ count: string }>(
+    const session = await db.getOne<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM "${schema}".session_logs`
+    ).catch(() => null);
+    const syslog = await db.getOne<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM "${schema}".syslogs`
-    );
-    return Number(row?.count ?? 0);
+    ).catch(() => null);
+    return Math.max(Number(session?.count ?? 0), Number(syslog?.count ?? 0));
   } catch {
     return 0;
   }

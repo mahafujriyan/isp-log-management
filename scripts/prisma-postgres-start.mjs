@@ -62,9 +62,19 @@ if (fs.existsSync(envPath)) {
   const existing = fs.readFileSync(envPath, "utf8");
   const current = existing.match(/^DATABASE_URL=(.*)$/m)?.[1] ?? "";
   if (current.includes("prisma.io")) {
-    console.log("✓ Using hosted Prisma database (prisma.io) — skipping local prisma dev.");
-    console.log("  Data is stored in your cloud DATABASE_URL.\n");
-    execSync("node scripts/sync-env.mjs", { cwd: root, stdio: "inherit" });
+    console.log("⚠ DATABASE_URL still points to Prisma hosted cloud (prisma.io).");
+    console.log("  Switch to VPS PostgreSQL: deploy/vps-postgres-setup.sh");
+    console.log("  Prisma Studio: npm run db:prisma:pull && npm run db:studio");
+    console.log("  See: prisma/README.md\n");
+    process.exit(0);
+  }
+  if (
+    current.includes("127.0.0.1") ||
+    current.includes("localhost") ||
+    current.includes("isp_logserver")
+  ) {
+    console.log("✓ VPS/local PostgreSQL configured — `prisma dev` server not needed.");
+    console.log("  Prisma Studio: npm run db:prisma:pull && npm run db:studio\n");
     process.exit(0);
   }
 }

@@ -24,6 +24,7 @@ function loadEnvFile(name: string) {
   }
 }
 
+loadEnvFile(".env.production.local");
 loadEnvFile(".env.local");
 loadEnvFile(".env");
 

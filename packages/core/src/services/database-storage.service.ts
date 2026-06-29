@@ -25,7 +25,18 @@ function resolveStorageLimitBytes(): number {
     return PRISMA_PLAN_LIMIT_MB.free * 1024 ** 2;
   }
 
+  // Self-hosted VPS/local Postgres — default 50 GB unless set via env
+  if (url.includes("127.0.0.1") || url.includes("localhost")) {
+    return 50 * 1024 ** 3;
+  }
+
   return 0;
+}
+
+function resolveStorageProvider(url: string): string {
+  if (url.includes("prisma.io")) return "Prisma Postgres";
+  if (url.includes("127.0.0.1") || url.includes("localhost")) return "VPS PostgreSQL";
+  return "PostgreSQL";
 }
 
 export async function getDatabaseStorageMetrics(): Promise<{
@@ -43,7 +54,7 @@ export async function getDatabaseStorageMetrics(): Promise<{
   const usedBytes = Number(row?.bytes ?? 0);
   const limitBytes = resolveStorageLimitBytes();
   const url = env.database.url ?? "";
-  const storageProvider = url.includes("prisma.io") ? "Prisma Postgres" : "PostgreSQL";
+  const storageProvider = resolveStorageProvider(url);
 
   return {
     usedBytes,

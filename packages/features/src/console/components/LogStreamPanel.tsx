@@ -18,9 +18,11 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("");
-  const [range, setRange] = useState<TimeRange>("7d");
+  const [range, setRange] = useState<TimeRange>("all");
   const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState<string>("");
+  const [source, setSource] = useState("");
+  const [totalInDb, setTotalInDb] = useState(0);
+  const [hint, setHint] = useState("");
 
   const prependLog = useCallback((entry: LogEntry) => {
     setLogs((prev) => {
@@ -54,6 +56,8 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
       if (res.ok && Array.isArray(data.logs)) {
         setLogs(data.logs);
         setSource(data.source ?? "");
+        setTotalInDb(data.total_in_db ?? 0);
+        setHint(data.hint ?? "");
         onStreamCount?.(data.logs.length);
       }
     } catch {
@@ -148,7 +152,13 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
           <p className="mt-1">
             Tenant: <strong>{activeTenant?.schema_name ?? tenantId}</strong> — MikroTik device এই tenant-এ add আছে কিনা check করুন।
           </p>
-          <p className="mt-1">Filter: <strong>Last 7 days</strong> বা <strong>All time</strong> try করুন।</p>
+          <p className="mt-1">Filter: <strong>All time</strong> selected — older logs use MikroTik date from syslog header.</p>
+          {totalInDb > 0 && (
+            <p className="mt-2 text-[12px] text-[#1565C0]">
+              Database has <strong>{totalInDb}</strong> log rows for this tenant — try widening date filter or refresh.
+            </p>
+          )}
+          {hint && <p className="mt-1 text-[12px] text-[#F57F17]">{hint}</p>}
           {socketLive && (socketStats?.processed ?? 0) > 0 && (
             <p className="mt-2 text-[12px] text-[#2E7D32]">
               Listener processed {socketStats?.processed} logs — wrong tenant select হলে এখানে দেখাবে না।

@@ -32,6 +32,7 @@ coverage/
 !.env*.example
 .env.local
 .env.production.local
+.db-credentials
 .env.development.local
 .env.test.local
 apps/*/.env.local

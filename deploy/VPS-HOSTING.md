@@ -1,14 +1,16 @@
 # VPS Deployment — Cyber Link Communication (Current)
 
-**Last updated:** June 2026 · Monorepo 3-portal + Prisma cloud database
+**Last updated:** June 2026 · Monorepo 3-portal + **VPS PostgreSQL** (recommended)
 
 | Role | IP / Host |
 |------|-----------|
-| **Log VPS** (apps + syslog) | `160.187.175.30` |
+| **Log VPS** (apps + syslog + **database**) | `160.187.175.30` |
 | **MikroTik NAT** (CLC-SFP1-NAT) | `160.187.175.26` |
-| **Database** (Prisma Postgres — cloud) | `pooled.db.prisma.io` — **VPS-এ PostgreSQL লাগে না** |
+| **Database** | **PostgreSQL on VPS** `127.0.0.1:5432` / `isp_logserver` |
 | **Project path** | `/opt/isp-log-management` |
 | **Env file** | `.env.production.local` |
+
+> **Database guide:** [VPS-POSTGRES.md](./VPS-POSTGRES.md) — Prisma cloud-এর বদলে VPS Postgres setup
 
 ---
 
@@ -21,30 +23,24 @@
   ┌─────────────────────────────────────────────────────┐
   │ VPS 160.187.175.30                                  │
   │                                                     │
-  │  isp-marketing      → :3000   Marketing site        │
-  │  isp-super-admin    → :3001   Super Admin portal    │
-  │  isp-operator       → :3002   Operator + REST API   │
-  │  isp-syslog-listener→ UDP 514 + Socket.IO :3003     │
+  │  PostgreSQL :5432 (127.0.0.1)  isp_logserver        │
+  │       └── tenant_001.syslogs / session_logs         │
   │                                                     │
-  │  nginx (optional)   → 80/443 → domains              │
-  └──────────────────────┬──────────────────────────────┘
-                         │ DATABASE_URL (SSL)
-                         ▼
-              ┌──────────────────────┐
-              │ Prisma Postgres      │
-              │ pooled.db.prisma.io  │
-              │ tenant_001 + logs    │
-              └──────────────────────┘
+  │  isp-marketing      → :3000                         │
+  │  isp-super-admin    → :3001                         │
+  │  isp-operator       → :3002   Operator + API        │
+  │  isp-syslog-listener→ UDP 514 + Socket.IO :3003     │
+  │  nginx (optional)   → 80/443                        │
+  └─────────────────────────────────────────────────────┘
 ```
 
 | Item | Status |
 |------|--------|
-| Database | **Prisma hosted Postgres** (cloud) — local `prisma dev` বা VPS-এ Postgres install **দরকার নেই** |
-| Data | **Real production only** — no demo sandbox, no fake syslog rows |
+| Database | **PostgreSQL on same VPS** — no Prisma cloud, no plan limit |
+| Data | **Real production only** — no demo sandbox |
 | Tenant | `tenant_001` — Cyber Link Communication |
-| Router | `CLC-SFP1-NAT` @ `160.187.175.26` (seeded + `router_tenant_map`) |
-| Dashboard storage | Live `pg_database_size()` from Prisma DB |
-| Next.js edge auth | `src/proxy.ts` (not `middleware.ts`) |
+| Router | `CLC-SFP1-NAT` @ `160.187.175.26` |
+| Dashboard storage | `pg_database_size()` from local Postgres |
 
 **Related docs:** [ARCHITECTURE.md](../ARCHITECTURE.md) · [database/README.md](../database/README.md) · [deploy/mikrotik/README.md](./mikrotik/README.md)
 
@@ -83,11 +79,9 @@ ssh root@160.187.175.30
 
 # PART 2 — One-time software (VPS)
 
-PostgreSQL **install করবেন না** — DB Prisma cloud-এ।
-
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl git nginx rsyslog ufw build-essential
+sudo apt install -y curl git nginx rsyslog ufw build-essential postgresql postgresql-contrib
 
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
@@ -100,6 +94,19 @@ sudo npm install -g pm2 tsx
 sudo mkdir -p /var/log/mikrotik
 sudo chown syslog:adm /var/log/mikrotik
 ```
+
+---
+
+# PART 2b — PostgreSQL on VPS (database)
+
+```bash
+cd /opt/isp-log-management
+sudo bash deploy/vps-postgres-setup.sh
+```
+
+Creates `isp_logserver` + user `isp_loguser`. Password → `.db-credentials`
+
+Full details: **[VPS-POSTGRES.md](./VPS-POSTGRES.md)**
 
 ---
 
@@ -149,13 +156,11 @@ MARKETING_PORT=3000
 ADMIN_PORT=3001
 OPERATOR_PORT=3002
 
-# ── Prisma hosted Postgres (prisma.io Console → Connect) ──
-DATABASE_URL=postgres://USER:PASSWORD@pooled.db.prisma.io:5432/postgres?sslmode=require
-DATABASE_POOL_MAX=3
-
-# Prisma storage quota (dashboard shows real DB size vs limit)
-DATABASE_STORAGE_LIMIT_MB=512
-PRISMA_PLAN=free
+# ── VPS local PostgreSQL (127.0.0.1 — same server) ──
+# Copy from .db-credentials after: sudo bash deploy/vps-postgres-setup.sh
+DATABASE_URL=postgresql://isp_loguser:YOUR_PASSWORD@127.0.0.1:5432/isp_logserver
+DATABASE_POOL_MAX=10
+DATABASE_STORAGE_LIMIT_GB=50
 
 AUTH_SECRET=PASTE_64_CHAR_HEX
 NEXTAUTH_SECRET=PASTE_64_CHAR_HEX
@@ -177,40 +182,21 @@ Secret generate:
 openssl rand -hex 32
 ```
 
-**`DATABASE_URL` কোথা থেকে:** [prisma.io](https://www.prisma.io) Console → your database → **Connect** → pooled URL copy করুন।
-
-**Plan limits (`PRISMA_PLAN`):** `free` = 512 MB · `starter` = 10 GB · `pro` = 50 GB · `business` = 100 GB
-
-### Domain ready হলে (PART 10)
-
-```env
-NEXT_PUBLIC_MARKETING_URL=https://www.YOUR-DOMAIN.com
-NEXT_PUBLIC_ADMIN_URL=https://admin.YOUR-DOMAIN.com
-NEXT_PUBLIC_OPERATOR_URL=https://app.YOUR-DOMAIN.com
-NEXT_PUBLIC_API_URL=https://app.YOUR-DOMAIN.com
-NEXT_PUBLIC_SOCKET_URL=https://app.YOUR-DOMAIN.com
-
-AUTH_COOKIE_SECURE=true
-```
-
-তারপর: `npm run build:all && npm run pm2:restart`
+**`DATABASE_URL`:** `deploy/vps-postgres-setup.sh` run করার পর `.db-credentials` file থেকে copy করুন।
 
 ---
 
-# PART 5 — Database (Prisma cloud — VPS থেকে run)
-
-VPS থেকে Prisma DB-তে connect হয় `DATABASE_URL` দিয়ে। **প্রথম deploy:**
+# PART 5 — Database (VPS PostgreSQL)
 
 ```bash
 cd /opt/isp-log-management
 
-# Fresh Prisma DB (schema + production seeds — no demo data)
+# Fresh database (schema + production seeds)
 npm run db:setup
 
-# Versioned patches (idempotent — safe every deploy)
+# Versioned patches (every deploy)
 npm run db:migrate
 
-# MikroTik router → tenant map sync
 npm run db:sync-routers
 ```
 
@@ -466,8 +452,8 @@ pm2 status
 
 | সমস্যা | সমাধান |
 |--------|---------|
-| `DATABASE_URL` / connection error | Prisma Console থেকে pooled URL copy; `sslmode=require` রাখুন; VPS IP whitelist লাগে না (cloud DB) |
-| `max clients reached` pool | `DATABASE_POOL_MAX=3` রাখুন; Prisma free plan connection limit |
+| `DATABASE_URL` / connection error | `sudo systemctl status postgresql` · URL = `127.0.0.1:5432/isp_logserver` · check `.db-credentials` |
+| Prisma plan limit (old setup) | Switch to VPS Postgres — [VPS-POSTGRES.md](./VPS-POSTGRES.md) |
 | `isp-syslog-listener errored` | `SOCKET_PORT=3003` (3001 নয়); `pm2 restart isp-syslog-listener` |
 | Login হয়, logout হয় না | IP mode: `AUTH_COOKIE_SECURE=false` |
 | `:3000/admin` 404 | Admin = **:3001** |
@@ -495,7 +481,7 @@ sudo tail -30 /var/log/nginx/error.log
 ```
 VPS:              160.187.175.30
 MikroTik:         160.187.175.26
-Database:         Prisma Postgres (pooled.db.prisma.io) — cloud
+Database:         PostgreSQL @ 127.0.0.1:5432/isp_logserver (on VPS)
 Project:          /opt/isp-log-management
 Env:              .env.production.local
 
@@ -518,6 +504,7 @@ Test:             npm run test:log-ingest
 | File | Purpose |
 |------|---------|
 | **deploy/VPS-HOSTING.md** | এই guide (main) |
+| **deploy/VPS-POSTGRES.md** | VPS PostgreSQL setup |
 | deploy/VPS-3-PORTAL-HOSTING.md | Short summary |
 | deploy/VPS-PM2-MIGRATE.md | পুরনো single-app PM2 → monorepo |
 | deploy/env.vps.example | `.env.production.local` template |

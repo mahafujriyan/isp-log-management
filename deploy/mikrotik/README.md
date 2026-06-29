@@ -6,7 +6,7 @@
 |------|-----|
 | Log VPS (Ubuntu) | `160.187.175.30` |
 | MikroTik CLC-SFP1-NAT | `160.187.175.26` |
-| Database | Prisma Postgres (`pooled.db.prisma.io`) — cloud |
+| Database | `160.187.175.30` (PostgreSQL `isp_logserver`) |
 
 ## MikroTik — import config
 
