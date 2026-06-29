@@ -15,6 +15,7 @@ interface SyslogQueryOptions {
   user?: string;
   mac?: string;
   nat_ip?: string;
+  router_id?: number;
 }
 
 function buildSessionLogsSelect(schema: string, options: SyslogQueryOptions): { sql: string; params: unknown[] } {
@@ -45,6 +46,10 @@ function buildSessionLogsSelect(schema: string, options: SyslogQueryOptions): { 
   if (options.nat_ip) {
     params.push(options.nat_ip);
     sql += ` AND host(nat_ip) = $${params.length}`;
+  }
+  if (options.router_id) {
+    params.push(options.router_id);
+    sql += ` AND router_id = $${params.length}`;
   }
   if (options.mac) {
     params.push(`%${options.mac.replace(/[:-]/g, "")}%`);
@@ -131,7 +136,11 @@ export async function getTenantSyslogs(
       addRows(await db.getMany<SyslogEntry>(sql, params));
     }
 
-    const { sql, params } = buildSyslogSelect(schemaName, { ...options, limit });
+    const { sql, params } = buildSyslogSelect(schemaName, {
+      ...options,
+      nat_ip: options.router_id ? undefined : options.nat_ip,
+      router_id: undefined,
+    });
     addRows(await db.getMany<SyslogEntry>(sql, params));
 
     return merged
@@ -187,11 +196,26 @@ export async function getLogsForTenantId(
 
 async function queryTenantLogs(schemaName: string, options: SyslogQueryOptions): Promise<LogEntry[]> {
   let logs = await getTenantSyslogs(schemaName, options);
+  const stripDate = { ...options, from: undefined, to: undefined };
+  const stripDevice = { ...options, nat_ip: undefined, router_id: undefined };
+
   if (logs.length === 0 && (options.from || options.to)) {
+    logs = await getTenantSyslogs(schemaName, stripDate);
+  }
+  if (logs.length === 0 && (options.nat_ip || options.router_id)) {
+    logs = await getTenantSyslogs(schemaName, stripDevice);
+  }
+  if (
+    logs.length === 0 &&
+    (options.from || options.to) &&
+    (options.nat_ip || options.router_id)
+  ) {
     logs = await getTenantSyslogs(schemaName, {
       ...options,
       from: undefined,
       to: undefined,
+      nat_ip: undefined,
+      router_id: undefined,
     });
   }
   return logs;
@@ -229,6 +253,7 @@ export async function resolveLogsQuery(params: {
   user?: string;
   mac?: string;
   nat_ip?: string;
+  router_id?: number;
 }): Promise<{ logs: LogEntry[]; source: "tenant" | "all"; schema_name?: string }> {
   const options: SyslogQueryOptions = {
     limit: params.limit,
@@ -237,6 +262,7 @@ export async function resolveLogsQuery(params: {
     user: params.user,
     mac: params.mac,
     nat_ip: params.nat_ip,
+    router_id: params.router_id,
   };
 
   const schemasToTry: string[] = [];

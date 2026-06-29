@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { apiError, canIngestLogs, parsePositiveInt, requirePermission, resolveTenantScope } from "@isp/core/utils/api.utils";
 import { ingestLogs, resolveLogsQuery, getTenantLogTableCounts, resolveDefaultTenant } from "@isp/core/services/syslog.service";
+import { resolveDeviceRouterId } from "@isp/core/services/device.service";
+import { getTenantById } from "@isp/core/services/tenant.service";
 import type { IngestLogsInput } from "@isp/core/types";
 
 export async function GET(request: Request) {
@@ -12,6 +14,8 @@ export async function GET(request: Request) {
   const user = searchParams.get("user") ?? undefined;
   const mac = searchParams.get("mac") ?? undefined;
   const natIp = searchParams.get("nat_ip") ?? searchParams.get("device") ?? undefined;
+  const deviceIdParam = searchParams.get("device_id");
+  const deviceId = deviceIdParam ? Number(deviceIdParam) : undefined;
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   const schema = searchParams.get("schema") ?? undefined;
@@ -29,15 +33,26 @@ export async function GET(request: Request) {
   }
 
   try {
+    const tenantRow = tenantId ? await getTenantById(tenantId) : null;
+    const lookupSchema =
+      schema ?? tenantRow?.schema_name ?? process.env.DEFAULT_TENANT_SCHEMA ?? "tenant_001";
+
+    let routerId: number | undefined;
+    if (deviceId && !Number.isNaN(deviceId)) {
+      const resolved = await resolveDeviceRouterId(lookupSchema, deviceId);
+      if (resolved) routerId = resolved;
+    }
+
     const { logs, source, schema_name } = await resolveLogsQuery({
       tenant_id: tenantId,
-      schema: schema ?? process.env.DEFAULT_TENANT_SCHEMA,
+      schema: lookupSchema,
       limit,
       from,
       to,
       user,
       mac,
-      nat_ip: natIp,
+      nat_ip: routerId ? undefined : natIp,
+      router_id: routerId,
     });
 
     const tableCounts = schema_name ? await getTenantLogTableCounts(schema_name) : null;
@@ -59,10 +74,17 @@ export async function GET(request: Request) {
       tenant_id: tenantId,
       hint:
         logs.length === 0 && totalInDb > 0
-          ? "Logs exist in database — widened to all time automatically; check tenant_001 tables"
+          ? "Logs exist in DB — device NAT filter removed mismatch; select All devices or refresh"
           : logs.length === 0
             ? "No rows in session_logs or syslogs — verify MikroTik ingest and db:migrate"
             : undefined,
+      active_filters: {
+        device_id: deviceId && !Number.isNaN(deviceId) ? deviceId : null,
+        router_id: routerId ?? null,
+        nat_ip: routerId ? null : natIp ?? null,
+        from: from ?? null,
+        to: to ?? null,
+      },
     });
   } catch (error) {
     return apiError(

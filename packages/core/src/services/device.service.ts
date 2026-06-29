@@ -250,3 +250,23 @@ export async function resolveDevicesQuery(params: {
 
   return { devices: [], schema_name: null, source: "tenant" };
 }
+
+/** Map MikroTik device row → routers.id for log filtering (not nat_ip — that is the subscriber public IP). */
+export async function resolveDeviceRouterId(
+  schemaName: string,
+  deviceId: number
+): Promise<number | null> {
+  const schema = assertValidTenantSchema(schemaName);
+  const row = await db.getOne<{ router_id: number }>(
+    `SELECT r.id AS router_id
+     FROM "${schema}".devices d
+     JOIN "${schema}".routers r
+       ON host(r.router_ip) = host(d.device_ip)
+       OR (d.nat_ip IS NOT NULL AND host(r.router_ip) = host(d.nat_ip))
+       OR (r.nat_ip IS NOT NULL AND host(r.nat_ip) = host(d.device_ip))
+     WHERE d.id = $1
+     LIMIT 1`,
+    [deviceId]
+  );
+  return row?.router_id ?? null;
+}

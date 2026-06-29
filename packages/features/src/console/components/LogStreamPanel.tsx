@@ -60,7 +60,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
         params.set("to", to);
       }
 
-      if (deviceFilter) params.set("nat_ip", deviceFilter);
+      if (deviceFilter) params.set("device_id", deviceFilter);
 
       const res = await fetch(`/api/logs?${params}`);
       const data = await res.json();
@@ -69,6 +69,14 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
         return;
       }
       if (Array.isArray(data.logs)) {
+        if (data.logs.length === 0 && (data.total_in_db ?? 0) > 0 && deviceFilter) {
+          setDeviceFilter("");
+          setHint("Device filter cleared — logs use subscriber NAT IP, not router IP");
+          setTotalInDb(data.total_in_db ?? 0);
+          setSessionLogsInDb(data.session_logs_in_db ?? 0);
+          setSyslogsInDb(data.syslogs_in_db ?? 0);
+          return;
+        }
         setLogs(data.logs);
         setSource(data.source ?? "");
         setTotalInDb(data.total_in_db ?? 0);
@@ -123,7 +131,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
         >
           <option value="">All devices</option>
           {devices.map((d) => (
-            <option key={d.id} value={d.nat_ip}>
+            <option key={d.id} value={String(d.id)}>
               {d.id} — {d.name} ({d.config})
             </option>
           ))}
@@ -178,6 +186,11 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
               <> — DB: <strong>{totalInDb}</strong> rows ({sessionLogsInDb} session_logs + {syslogsInDb} syslogs)</>
             )}
           </p>
+          {deviceFilter && totalInDb > 0 && (
+            <p className="mt-1 text-[12px] text-[#64748B]">
+              Device filter may hide logs — try <strong>All devices</strong>.
+            </p>
+          )}
           <p className="mt-1">Filter: <strong>{range === "all" ? "All time" : range}</strong></p>
           {apiError && (
             <p className="mt-2 text-[12px] text-[#C62828]">API error: {apiError}</p>

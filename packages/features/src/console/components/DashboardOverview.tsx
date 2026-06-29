@@ -91,15 +91,18 @@ export function DashboardOverview({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PanelCard title="Top PPPoE users">
-          {topUsers.map(([user, count]) => {
+          {topUsers.length === 0 ? (
+            <p className="text-[12px] text-[#64748B]">No user data yet</p>
+          ) : (
+          topUsers.map(([user, count]) => {
             const max = topUsers[0]?.[1] ?? 1;
             return (
               <div
-                key={user}
+                key={user || "unknown"}
                 className="flex items-center gap-2 border-b border-[#E2E8F0] py-1.5 last:border-0"
               >
                 <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[#E3F2FD] text-[10px] font-medium text-[#1565C0]">
-                  {user[0].toUpperCase()}
+                  {(user?.[0] ?? "?").toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[12px] font-medium">{user}</div>
@@ -113,10 +116,14 @@ export function DashboardOverview({
                 <span className="min-w-[28px] text-right text-[11px] text-[#64748B]">{count}</span>
               </div>
             );
-          })}
+          })
+          )}
         </PanelCard>
         <PanelCard title="Top visited IPs">
-          {topIps.map(([ip, count]) => {
+          {topIps.length === 0 ? (
+            <p className="text-[12px] text-[#64748B]">No IP data yet</p>
+          ) : (
+          topIps.map(([ip, count]) => {
             const max = topIps[0]?.[1] ?? 1;
             return (
               <div
@@ -135,7 +142,8 @@ export function DashboardOverview({
                 <span className="min-w-[28px] text-right text-[11px] text-[#64748B]">{count}</span>
               </div>
             );
-          })}
+          })
+          )}
         </PanelCard>
       </div>
 

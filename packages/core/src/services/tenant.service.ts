@@ -86,9 +86,11 @@ export async function updateTenantStatus(id: number, status: string): Promise<Te
 }
 
 export function syslogToLogEntry(row: SyslogEntry): LogEntry {
+  const parsed = row.received_at ? new Date(row.received_at) : new Date();
+  const time = Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
   return {
     id: row.id,
-    time: new Date(row.received_at).toISOString(),
+    time,
     pppoe_user: row.pppoe_user ?? "",
     mac: row.mac_address ?? "",
     user_ip: row.user_ip ?? "",
