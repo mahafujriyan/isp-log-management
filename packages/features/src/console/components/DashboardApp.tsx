@@ -41,7 +41,7 @@ const FAQS = [
 ];
 
 export function DashboardApp() {
-  const { tenantId } = useTenantContext();
+  const { tenantId, loading: tenantLoading } = useTenantContext();
   const [page, setPage] = useState<DashboardPageId>("dashboard");
   const [clock, setClock] = useState("--:--:--");
   const [streamCount, setStreamCount] = useState(0);
@@ -72,6 +72,8 @@ export function DashboardApp() {
   }, []);
 
   useEffect(() => {
+    if (tenantLoading || tenantId == null) return;
+
     fetch(`/api/dashboard/metrics?tenant_id=${tenantId}`)
       .then((r) => r.json())
       .then((m) => {
@@ -121,7 +123,7 @@ export function DashboardApp() {
         setStreamCount(logs.length);
       })
       .catch(() => {});
-  }, [tenantId]);
+  }, [tenantId, tenantLoading]);
 
   return (
     <DashboardLayout

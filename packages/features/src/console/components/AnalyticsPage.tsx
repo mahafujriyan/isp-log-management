@@ -70,7 +70,7 @@ export function AnalyticsPage() {
           <div className="mb-1 text-[11px] font-medium text-[#64748B]">Tenant</div>
           {tenants.length > 1 && !isDemo ? (
             <select
-              value={tenantId}
+              value={tenantId ?? ""}
               onChange={(e) => setTenantId(Number(e.target.value))}
               className="rounded-md border border-[#E2E8F0] px-3 py-1.5 text-[12px]"
             >

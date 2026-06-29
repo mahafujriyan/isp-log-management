@@ -193,7 +193,7 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
       <div className="mb-2.5 flex flex-wrap items-center gap-2">
         {tenants.length > 1 && (
           <select
-            value={tenantId}
+            value={tenantId ?? ""}
             onChange={(e) => setTenantId(Number(e.target.value))}
             className="rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]"
           >

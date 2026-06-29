@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, canIngestLogs, parsePositiveInt, requirePermission, resolveTenantScope } from "@isp/core/utils/api.utils";
-import { ingestLogs, resolveLogsQuery, countTenantSyslogs } from "@isp/core/services/syslog.service";
+import { ingestLogs, resolveLogsQuery, getTenantLogTableCounts, resolveDefaultTenant } from "@isp/core/services/syslog.service";
 import type { IngestLogsInput } from "@isp/core/types";
 
 export async function GET(request: Request) {
@@ -22,10 +22,16 @@ export async function GET(request: Request) {
   );
   if (scope.error) return scope.error;
 
+  let tenantId = scope.tenant_id ?? requested;
+  if (!tenantId || Number.isNaN(tenantId)) {
+    const defaultTenant = await resolveDefaultTenant();
+    tenantId = defaultTenant?.id;
+  }
+
   try {
     const { logs, source, schema_name } = await resolveLogsQuery({
-      tenant_id: scope.tenant_id,
-      schema,
+      tenant_id: tenantId,
+      schema: schema ?? process.env.DEFAULT_TENANT_SCHEMA,
       limit,
       from,
       to,
@@ -34,7 +40,8 @@ export async function GET(request: Request) {
       nat_ip: natIp,
     });
 
-    const totalInDb = schema_name ? await countTenantSyslogs(schema_name) : 0;
+    const tableCounts = schema_name ? await getTenantLogTableCounts(schema_name) : null;
+    const totalInDb = tableCounts?.total ?? 0;
 
     const format = searchParams.get("format");
     if (format === "raw") {
@@ -45,12 +52,17 @@ export async function GET(request: Request) {
       logs,
       count: logs.length,
       total_in_db: totalInDb,
+      session_logs_in_db: tableCounts?.session_logs ?? 0,
+      syslogs_in_db: tableCounts?.syslogs ?? 0,
       source,
       schema_name,
+      tenant_id: tenantId,
       hint:
         logs.length === 0 && totalInDb > 0
-          ? "Logs exist in database but outside selected time range — try All time"
-          : undefined,
+          ? "Logs exist in database — widened to all time automatically; check tenant_001 tables"
+          : logs.length === 0
+            ? "No rows in session_logs or syslogs — verify MikroTik ingest and db:migrate"
+            : undefined,
     });
   } catch (error) {
     return apiError(

@@ -14,7 +14,7 @@ interface LogStreamPanelProps {
 type TimeRange = "1h" | "24h" | "7d" | "all";
 
 export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
-  const { tenantId, tenants, setTenantId, isDemo, activeTenant } = useTenantContext();
+  const { tenantId, tenants, setTenantId, isDemo, activeTenant, loading: tenantLoading } = useTenantContext();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("");
@@ -22,7 +22,11 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState("");
   const [totalInDb, setTotalInDb] = useState(0);
+  const [sessionLogsInDb, setSessionLogsInDb] = useState(0);
+  const [syslogsInDb, setSyslogsInDb] = useState(0);
+  const [schemaName, setSchemaName] = useState("");
   const [hint, setHint] = useState("");
+  const [apiError, setApiError] = useState("");
 
   const prependLog = useCallback((entry: LogEntry) => {
     setLogs((prev) => {
@@ -32,14 +36,21 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
     });
   }, [onStreamCount]);
 
-  const { connected: socketLive, stats: socketStats, error: socketError } = useLogSocket(tenantId, prependLog);
+  const { connected: socketLive, stats: socketStats, error: socketError } = useLogSocket(tenantId ?? undefined, prependLog);
 
   const loadLogs = useCallback(async () => {
+    if (tenantLoading || tenantId == null) return;
+
     try {
+      setApiError("");
       const params = new URLSearchParams({
         tenant_id: String(tenantId),
         limit: "150",
       });
+
+      if (activeTenant?.schema_name) {
+        params.set("schema", activeTenant.schema_name);
+      }
 
       if (range !== "all") {
         const hours = range === "1h" ? 1 : range === "24h" ? 24 : 24 * 7;
@@ -53,21 +64,29 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
 
       const res = await fetch(`/api/logs?${params}`);
       const data = await res.json();
-      if (res.ok && Array.isArray(data.logs)) {
+      if (!res.ok) {
+        setApiError(data.message ?? data.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      if (Array.isArray(data.logs)) {
         setLogs(data.logs);
         setSource(data.source ?? "");
         setTotalInDb(data.total_in_db ?? 0);
+        setSessionLogsInDb(data.session_logs_in_db ?? 0);
+        setSyslogsInDb(data.syslogs_in_db ?? 0);
+        setSchemaName(data.schema_name ?? activeTenant?.schema_name ?? "");
         setHint(data.hint ?? "");
         onStreamCount?.(data.logs.length);
       }
-    } catch {
-      /* keep previous logs */
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Failed to load logs");
     } finally {
       setLoading(false);
     }
-  }, [tenantId, range, deviceFilter, onStreamCount]);
+  }, [tenantId, tenantLoading, activeTenant?.schema_name, range, deviceFilter, onStreamCount]);
 
   useEffect(() => {
+    if (tenantId == null) return;
     fetch(`/api/devices?tenant_id=${tenantId}`)
       .then((r) => r.json())
       .then((d) => setDevices(d.devices ?? []))
@@ -75,17 +94,18 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   }, [tenantId]);
 
   useEffect(() => {
+    if (tenantLoading || tenantId == null) return;
     setLoading(true);
     loadLogs();
     const ms = socketLive ? 15000 : 4000;
     const interval = setInterval(loadLogs, ms);
     return () => clearInterval(interval);
-  }, [loadLogs, socketLive]);
+  }, [loadLogs, socketLive, tenantLoading, tenantId]);
 
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
       <div className="mb-2.5 flex flex-wrap items-center gap-2">
-        {tenants.length > 1 && !isDemo && (
+        {tenants.length > 1 && !isDemo && tenantId != null && (
           <select
             value={tenantId}
             onChange={(e) => setTenantId(Number(e.target.value))}
@@ -126,7 +146,10 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
           {socketLive ? "Live" : loading ? "Loading..." : "Polling (4s)"}
         </div>
         <span className="ml-auto text-[12px] text-[#64748B]">
-          {logs.length} rows {source ? `· ${source}` : ""}
+          {logs.length} rows
+          {schemaName ? ` · ${schemaName}` : ""}
+          {source ? ` · ${source}` : ""}
+          {totalInDb > 0 ? ` · DB: ${totalInDb}` : ""}
           {socketStats ? ` · ingested ${socketStats.processed}` : ""}
         </span>
         <button
@@ -144,18 +167,24 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
           Clear
         </button>
       </div>
-      {loading && logs.length === 0 ? (
+      {tenantLoading || (loading && logs.length === 0 && tenantId == null) ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-[#1565C0]" size={24} /></div>
       ) : logs.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] px-4 py-10 text-center text-[13px] text-[#64748B]">
           <p className="font-medium text-[#334155]">No logs in this period</p>
           <p className="mt-1">
-            Tenant: <strong>{activeTenant?.schema_name ?? tenantId}</strong> — MikroTik device এই tenant-এ add আছে কিনা check করুন।
+            Tenant: <strong>{schemaName || activeTenant?.schema_name || (tenantId != null ? `id ${tenantId}` : "—")}</strong>
+            {totalInDb > 0 && (
+              <> — DB: <strong>{totalInDb}</strong> rows ({sessionLogsInDb} session_logs + {syslogsInDb} syslogs)</>
+            )}
           </p>
-          <p className="mt-1">Filter: <strong>All time</strong> selected — older logs use MikroTik date from syslog header.</p>
+          <p className="mt-1">Filter: <strong>{range === "all" ? "All time" : range}</strong></p>
+          {apiError && (
+            <p className="mt-2 text-[12px] text-[#C62828]">API error: {apiError}</p>
+          )}
           {totalInDb > 0 && (
             <p className="mt-2 text-[12px] text-[#1565C0]">
-              Database has <strong>{totalInDb}</strong> log rows for this tenant — try widening date filter or refresh.
+              Database has logs — refresh করুন বা tenant select check করুন।
             </p>
           )}
           {hint && <p className="mt-1 text-[12px] text-[#F57F17]">{hint}</p>}

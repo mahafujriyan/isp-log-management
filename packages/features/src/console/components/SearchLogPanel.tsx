@@ -7,7 +7,7 @@ import { logsFromTimeRange, useTenantContext } from "@isp/auth/hooks/useTenantCo
 import { Loader2 } from "lucide-react";
 
 export function SearchLogPanel() {
-  const { tenantId, tenants, setTenantId } = useTenantContext();
+  const { tenantId, tenants, setTenantId, loading: tenantLoading } = useTenantContext();
   const [query, setQuery] = useState("");
   const [mac, setMac] = useState("");
   const [range, setRange] = useState("24h");
@@ -17,6 +17,7 @@ export function SearchLogPanel() {
   const [source, setSource] = useState("");
 
   async function doSearch() {
+    if (tenantLoading || tenantId == null) return;
     setLoading(true);
     setSearched(true);
     try {
@@ -64,7 +65,7 @@ export function SearchLogPanel() {
         <div>
           <div className="mb-1 text-[12px] text-[#64748B]">Database</div>
           <select
-            value={tenantId}
+            value={tenantId ?? ""}
             onChange={(e) => setTenantId(Number(e.target.value))}
             className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]"
           >

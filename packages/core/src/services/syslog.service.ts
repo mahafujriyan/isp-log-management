@@ -72,11 +72,11 @@ function buildSyslogSelect(schema: string, options: SyslogQueryOptions): { sql: 
 
   if (options.from) {
     params.push(options.from);
-    sql += ` AND received_at >= $${params.length}`;
+    sql += ` AND received_at >= $${params.length}::timestamptz`;
   }
   if (options.to) {
     params.push(options.to);
-    sql += ` AND received_at <= $${params.length}`;
+    sql += ` AND received_at <= $${params.length}::timestamptz`;
   }
   if (options.user) {
     params.push(`%${options.user}%`);
@@ -181,8 +181,25 @@ export async function getLogsForTenantId(
 ): Promise<{ logs: LogEntry[]; schema_name: string | null }> {
   const tenant = await getTenantById(tenantId);
   if (!tenant) return { logs: [], schema_name: null };
-  const logs = await getTenantSyslogs(tenant.schema_name, options);
+  const logs = await queryTenantLogs(tenant.schema_name, options);
   return { logs, schema_name: tenant.schema_name };
+}
+
+async function queryTenantLogs(schemaName: string, options: SyslogQueryOptions): Promise<LogEntry[]> {
+  let logs = await getTenantSyslogs(schemaName, options);
+  if (logs.length === 0 && (options.from || options.to)) {
+    logs = await getTenantSyslogs(schemaName, {
+      ...options,
+      from: undefined,
+      to: undefined,
+    });
+  }
+  return logs;
+}
+
+export async function resolveDefaultTenant() {
+  const schema = process.env.DEFAULT_TENANT_SCHEMA ?? "tenant_001";
+  return getTenantBySchema(schema);
 }
 
 export async function getLogsAcrossTenants(options: SyslogQueryOptions = {}): Promise<LogEntry[]> {
@@ -222,37 +239,83 @@ export async function resolveLogsQuery(params: {
     nat_ip: params.nat_ip,
   };
 
+  const schemasToTry: string[] = [];
+
   if (params.tenant_id) {
-    const { logs, schema_name } = await getLogsForTenantId(params.tenant_id, options);
-    if (schema_name) return { logs, source: "tenant", schema_name };
+    const tenant = await getTenantById(params.tenant_id);
+    if (tenant) schemasToTry.push(tenant.schema_name);
+  }
+  if (params.schema && !schemasToTry.includes(params.schema)) {
+    schemasToTry.push(params.schema);
+  }
+  const defaultTenant = await resolveDefaultTenant();
+  if (defaultTenant && !schemasToTry.includes(defaultTenant.schema_name)) {
+    schemasToTry.push(defaultTenant.schema_name);
   }
 
-  if (params.schema) {
-    const tenant = await getTenantBySchema(params.schema);
-    if (tenant) {
-      const logs = await getTenantSyslogs(tenant.schema_name, options);
-      return { logs, source: "tenant", schema_name: tenant.schema_name };
+  for (const schemaName of schemasToTry) {
+    const logs = await queryTenantLogs(schemaName, options);
+    if (logs.length > 0) {
+      return { logs, source: "tenant", schema_name: schemaName };
+    }
+    const total = await countTenantSyslogs(schemaName);
+    if (total > 0) {
+      const unfiltered = await getTenantSyslogs(schemaName, {
+        ...options,
+        from: undefined,
+        to: undefined,
+      });
+      if (unfiltered.length > 0) {
+        return { logs: unfiltered, source: "tenant", schema_name: schemaName };
+      }
+      return { logs: [], source: "tenant", schema_name: schemaName };
     }
   }
 
-  const allLogs = await getLogsAcrossTenants(options);
-  if (allLogs.length > 0) return { logs: allLogs, source: "all" };
+  const allLogs = await getLogsAcrossTenants({ ...options, from: undefined, to: undefined });
+  if (allLogs.length > 0) {
+    return { logs: allLogs, source: "all" };
+  }
 
-  return { logs: [], source: "tenant" };
+  return {
+    logs: [],
+    source: "tenant",
+    schema_name: defaultTenant?.schema_name ?? schemasToTry[0],
+  };
 }
 
 export async function countTenantSyslogs(schemaName: string): Promise<number> {
   try {
     const schema = assertValidTenantSchema(schemaName);
-    const session = await db.getOne<{ count: string }>(
-      `SELECT COUNT(*)::text AS count FROM "${schema}".session_logs`
-    ).catch(() => null);
-    const syslog = await db.getOne<{ count: string }>(
-      `SELECT COUNT(*)::text AS count FROM "${schema}".syslogs`
-    ).catch(() => null);
-    return Math.max(Number(session?.count ?? 0), Number(syslog?.count ?? 0));
+    const row = await db.getOne<{ count: string }>(
+      `SELECT (
+         COALESCE((SELECT COUNT(*) FROM "${schema}".session_logs), 0) +
+         COALESCE((SELECT COUNT(*) FROM "${schema}".syslogs), 0)
+       )::text AS count`
+    );
+    return Number(row?.count ?? 0);
   } catch {
     return 0;
+  }
+}
+
+export async function getTenantLogTableCounts(schemaName: string): Promise<{
+  session_logs: number;
+  syslogs: number;
+  total: number;
+}> {
+  try {
+    const schema = assertValidTenantSchema(schemaName);
+    const row = await db.getOne<{ session: string; syslog: string }>(
+      `SELECT
+         (SELECT COUNT(*)::text FROM "${schema}".session_logs) AS session,
+         (SELECT COUNT(*)::text FROM "${schema}".syslogs) AS syslog`
+    );
+    const session = Number(row?.session ?? 0);
+    const syslog = Number(row?.syslog ?? 0);
+    return { session_logs: session, syslogs: syslog, total: session + syslog };
+  } catch {
+    return { session_logs: 0, syslogs: 0, total: 0 };
   }
 }
 

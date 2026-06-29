@@ -3,13 +3,13 @@ import { useSession } from "next-auth/react";
 import type { Tenant } from "@isp/core/types";
 import { isDemoAccount } from "@isp/core/constants/roles.constants";
 
-function pickDefaultTenant(tenants: Tenant[], sessionTenantId?: number): number {
+function pickDefaultTenant(tenants: Tenant[], sessionTenantId?: number): number | null {
   if (sessionTenantId) return sessionTenantId;
   const production =
     tenants.find((t) => t.schema_name === "tenant_001") ??
     tenants.find((t) => !t.is_demo_sandbox) ??
     tenants[0];
-  return production?.id ?? 1;
+  return production?.id ?? null;
 }
 
 export function useTenantContext() {
@@ -17,7 +17,7 @@ export function useTenantContext() {
   const sessionTenantId = session?.user?.tenantId;
   const demo = isDemoAccount(session?.user?.role, session?.user?.accountType);
 
-  const [tenantId, setTenantId] = useState(sessionTenantId ?? 1);
+  const [tenantId, setTenantId] = useState<number | null>(sessionTenantId ?? null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
 

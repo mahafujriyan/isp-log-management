@@ -47,7 +47,7 @@ function resolveSocketUrl(): string {
   return window.location.origin;
 }
 
-export function useLogSocket(tenantId: number, onLog?: (entry: LogEntry) => void) {
+export function useLogSocket(tenantId: number | undefined, onLog?: (entry: LogEntry) => void) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<{ processed: number; errors: number } | null>(null);
@@ -59,6 +59,12 @@ export function useLogSocket(tenantId: number, onLog?: (entry: LogEntry) => void
   }, [onLog]);
 
   useEffect(() => {
+    if (tenantId == null) {
+      setConnected(false);
+      setError(null);
+      return;
+    }
+
     const socketUrl = resolveSocketUrl();
 
     if (!socketUrl) {
