@@ -71,11 +71,14 @@ NEXT_PUBLIC_MARKETING_URL=http://160.187.175.30:3000
 
 Use `apiUrl("/api/plans")` from `@isp/core/utils/portal-api.utils`.
 
-## Development
+## Deploy
+
+See **[deploy/VPS-HOSTING.md](deploy/VPS-HOSTING.md)** for full VPS deployment (3 portals, Prisma cloud DB, MikroTik syslog).
 
 ```bash
-npm install
-npm run dev          # starts all 3 portals (marketing + admin + operator)
+# VPS quick reference
+cp deploy/env.vps.example .env.production.local
+npm run db:migrate && npm run build:all && npm run pm2:start
 ```
 
 | Portal | URL |

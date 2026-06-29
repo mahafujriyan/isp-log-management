@@ -1,11 +1,10 @@
-# VPS Update — Monorepo (3 Portals)
+# VPS Update — Monorepo (3 Portals + Prisma DB)
 
-> **সম্পূর্ণ guide:** [VPS-HOSTING.md](./VPS-HOSTING.md) — ৩ Section + Domain (PART 1–15)  
-> **Summary:** [VPS-3-PORTAL-HOSTING.md](./VPS-3-PORTAL-HOSTING.md)
+> **Full guide:** [VPS-HOSTING.md](./VPS-HOSTING.md)
 
-VPS IP: **160.187.175.30**
+VPS: **160.187.175.30** · DB: **Prisma cloud** (not on VPS)
 
-## URLs after update
+## URLs
 
 | Portal | URL |
 |--------|-----|
@@ -13,48 +12,38 @@ VPS IP: **160.187.175.30**
 | Super Admin | http://160.187.175.30:3001/admin/login |
 | Operator | http://160.187.175.30:3002/auth/login |
 
-## VPS এ update (SSH)
+## SSH update
 
 ```bash
 cd /opt/isp-log-management
 git pull
-
-# env update — copy from deploy/env.vps.example if first time
-nano .env.production.local
-
-npm install
+npm ci
+npm run db:migrate
 npm run build:all
 npm run pm2:restart
+npm run db:sync-routers
 pm2 status
 ```
 
-## Firewall (ports open)
-
-```bash
-sudo ufw allow 3000/tcp
-sudo ufw allow 3001/tcp
-sudo ufw allow 3002/tcp
-sudo ufw reload
-```
-
-## `.env.production.local` (minimum)
+## Env minimum (`.env.production.local`)
 
 ```env
 NEXT_PUBLIC_MARKETING_URL=http://160.187.175.30:3000
 NEXT_PUBLIC_ADMIN_URL=http://160.187.175.30:3001
 NEXT_PUBLIC_OPERATOR_URL=http://160.187.175.30:3002
 NEXT_PUBLIC_API_URL=http://160.187.175.30:3002
-AUTH_ADMIN_URL=http://160.187.175.30:3001
-AUTH_OPERATOR_URL=http://160.187.175.30:3002
-AUTH_URL=http://160.187.175.30:3002
-NEXTAUTH_URL=http://160.187.175.30:3002
+NEXT_PUBLIC_SOCKET_URL=http://160.187.175.30:3003
 AUTH_COOKIE_SECURE=false
-DATABASE_URL=postgresql://...
+
+DATABASE_URL=postgres://...@pooled.db.prisma.io:5432/postgres?sslmode=require
+DATABASE_POOL_MAX=3
 AUTH_SECRET=...
+SOCKET_PORT=3003
 ```
 
-## Old single-port setup
+## Notes
 
-আগে শুধু `:3000` এ সব ছিল। এখন monorepo — **৩টা port** লাগবে, অথবা nginx domain setup (`deploy/nginx/three-portals.conf`).
-
-Local এ যা কাজ না করলে VPS এ same URL mistake হবে — `160.187.175.30:3000/admin` কাজ করবে **না**। Admin = **:3001**।
+- Database = Prisma hosted — VPS-এ Postgres install লাগে না
+- Admin portal = port **3001** only
+- Socket.IO = port **3003** (not 3001)
+- No demo data — `npm run db:purge-demo` if old sandbox exists

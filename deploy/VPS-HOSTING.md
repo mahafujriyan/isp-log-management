@@ -1,52 +1,79 @@
-# VPS Deployment Guide — Cyber Link Communication
+# VPS Deployment — Cyber Link Communication (Current)
 
-**৩টা Portal আলাদা VPS-এ host** — আগের single-port deployment guide-এর upgrade version।
+**Last updated:** June 2026 · Monorepo 3-portal + Prisma cloud database
 
-| Item | Value |
-|------|-------|
-| **VPS IP** | `160.187.175.30` |
-| **MikroTik** | `160.187.175.26` |
+| Role | IP / Host |
+|------|-----------|
+| **Log VPS** (apps + syslog) | `160.187.175.30` |
+| **MikroTik NAT** (CLC-SFP1-NAT) | `160.187.175.26` |
+| **Database** (Prisma Postgres — cloud) | `pooled.db.prisma.io` — **VPS-এ PostgreSQL লাগে না** |
 | **Project path** | `/opt/isp-log-management` |
 | **Env file** | `.env.production.local` |
 
-> **Related:** [ARCHITECTURE.md](../ARCHITECTURE.md) · `deploy/env.vps.example` · `deploy/domains.template.env`
-
 ---
 
-## Deployment Map — ৩টা Section (৩টা Domain)
-
-এক VPS, **৩টা আলাদা app** + syslog worker। Domain পরে add করবেন — আগে IP+port দিয়ে চালু করুন।
-
-| Section | Portal | App | Port | এখন (IP) | Domain (পore লিখবেন) |
-|---------|--------|-----|------|----------|---------------------|
-| **SECTION 1** | Marketing | `apps/marketing` | **3000** | http://160.187.175.30:3000 | `________________________` |
-| **SECTION 2** | Super Admin | `apps/super-admin` | **3001** | http://160.187.175.30:3001 | `________________________` |
-| **SECTION 3** | Operator + API | `apps/operator` | **3002** | http://160.187.175.30:3002 | `________________________` |
-| *(worker)* | Syslog | `workers/syslog-listener` | UDP **514** | — | — |
+## Current situation (কী চলছে এখন)
 
 ```
   MikroTik 160.187.175.26
-         │ UDP 514
+         │ UDP syslog :514
          ▼
-  ┌──────────────────────────────────────────┐
-  │ VPS 160.187.175.30                       │
-  │                                          │
-  │  SECTION 1  isp-marketing     :3000      │──► www.your-domain.com
-  │  SECTION 2  isp-super-admin   :3001      │──► admin.your-domain.com
-  │  SECTION 3  isp-operator      :3002      │──► app.your-domain.com
-  │             isp-syslog-listener :514     │
-  │                                          │
-  │  nginx (domain ready হলে) → 80/443       │
-  └──────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────┐
+  │ VPS 160.187.175.30                                  │
+  │                                                     │
+  │  isp-marketing      → :3000   Marketing site        │
+  │  isp-super-admin    → :3001   Super Admin portal    │
+  │  isp-operator       → :3002   Operator + REST API   │
+  │  isp-syslog-listener→ UDP 514 + Socket.IO :3003     │
+  │                                                     │
+  │  nginx (optional)   → 80/443 → domains              │
+  └──────────────────────┬──────────────────────────────┘
+                         │ DATABASE_URL (SSL)
+                         ▼
+              ┌──────────────────────┐
+              │ Prisma Postgres      │
+              │ pooled.db.prisma.io  │
+              │ tenant_001 + logs    │
+              └──────────────────────┘
 ```
 
-**Domain sheet fill করতে:** `deploy/domains.template.env` → copy → `deploy/domains.env` edit করুন।
+| Item | Status |
+|------|--------|
+| Database | **Prisma hosted Postgres** (cloud) — local `prisma dev` বা VPS-এ Postgres install **দরকার নেই** |
+| Data | **Real production only** — no demo sandbox, no fake syslog rows |
+| Tenant | `tenant_001` — Cyber Link Communication |
+| Router | `CLC-SFP1-NAT` @ `160.187.175.26` (seeded + `router_tenant_map`) |
+| Dashboard storage | Live `pg_database_size()` from Prisma DB |
+| Next.js edge auth | `src/proxy.ts` (not `middleware.ts`) |
+
+**Related docs:** [ARCHITECTURE.md](../ARCHITECTURE.md) · [database/README.md](../database/README.md) · [deploy/mikrotik/README.md](./mikrotik/README.md)
 
 ---
 
-# PART 1 — VPS এ SSH Login
+## Portal map
 
-Windows PowerShell / Git Bash:
+| Section | Portal | App folder | Port | URL (IP mode) |
+|---------|--------|------------|------|---------------|
+| 1 | Marketing | `apps/marketing` | **3000** | http://160.187.175.30:3000 |
+| 2 | Super Admin | `apps/super-admin` | **3001** | http://160.187.175.30:3001 |
+| 3 | Operator + API | `apps/operator` | **3002** | http://160.187.175.30:3002 |
+| — | Syslog worker | `workers/syslog-listener` | UDP **514** + Socket **3003** | — |
+
+> ⚠️ `160.187.175.30:3000/admin` কাজ করবে **না** — Admin শুধু **:3001**  
+> ⚠️ Socket.IO port **3003** (3001 = Super Admin — clash হবে)
+
+---
+
+## Logins (production)
+
+| Portal | Email | Password | Extra |
+|--------|-------|----------|-------|
+| Operator (:3002) | `admin@cyberlink.com` | `Admin@123456` | — |
+| Super Admin (:3001) | `superadmin@cyberlink.com` | `Super@Secure2026!` | Code: `CYBER-LINK-2026` |
+
+---
+
+# PART 1 — VPS SSH
 
 ```bash
 ssh root@160.187.175.30
@@ -54,7 +81,9 @@ ssh root@160.187.175.30
 
 ---
 
-# PART 2 — VPS এ Software Install (one-time)
+# PART 2 — One-time software (VPS)
+
+PostgreSQL **install করবেন না** — DB Prisma cloud-এ।
 
 ```bash
 sudo apt update && sudo apt upgrade -y
@@ -74,7 +103,7 @@ sudo chown syslog:adm /var/log/mikrotik
 
 ---
 
-# PART 3 — Project Upload / Clone
+# PART 3 — Clone project
 
 ```bash
 sudo mkdir -p /opt
@@ -84,11 +113,11 @@ sudo chown -R $USER:$USER /opt/isp-log-management
 cd /opt/isp-log-management
 ```
 
-**WinSCP / FileZilla:** Host `160.187.175.30`, Port `22`, SFTP → `/opt/isp-log-management`
+WinSCP / SFTP → `/opt/isp-log-management`
 
 ---
 
-# PART 4 — Environment File
+# PART 4 — Environment (`.env.production.local`)
 
 ```bash
 cd /opt/isp-log-management
@@ -96,23 +125,23 @@ cp deploy/env.vps.example .env.production.local
 nano .env.production.local
 ```
 
-### Phase A — এখন (IP + Port, domain ছাড়া)
+### Required values
 
 ```env
 NODE_ENV=production
 
-# ── 3 Portal URLs (IP mode) ──
+# ── 3 Portal URLs (IP mode — domain না থাকলে) ──
 NEXT_PUBLIC_MARKETING_URL=http://160.187.175.30:3000
 NEXT_PUBLIC_ADMIN_URL=http://160.187.175.30:3001
 NEXT_PUBLIC_OPERATOR_URL=http://160.187.175.30:3002
 NEXT_PUBLIC_API_URL=http://160.187.175.30:3002
+NEXT_PUBLIC_APP_URL=http://160.187.175.30:3002
 
 AUTH_ADMIN_URL=http://160.187.175.30:3001
 AUTH_OPERATOR_URL=http://160.187.175.30:3002
 AUTH_URL=http://160.187.175.30:3002
 NEXTAUTH_URL=http://160.187.175.30:3002
-NEXT_PUBLIC_APP_URL=http://160.187.175.30:3002
-NEXT_PUBLIC_SOCKET_URL=http://160.187.175.30:3002
+NEXT_PUBLIC_SOCKET_URL=http://160.187.175.30:3003
 
 AUTH_COOKIE_SECURE=false
 
@@ -120,7 +149,14 @@ MARKETING_PORT=3000
 ADMIN_PORT=3001
 OPERATOR_PORT=3002
 
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/postgres?sslmode=require
+# ── Prisma hosted Postgres (prisma.io Console → Connect) ──
+DATABASE_URL=postgres://USER:PASSWORD@pooled.db.prisma.io:5432/postgres?sslmode=require
+DATABASE_POOL_MAX=3
+
+# Prisma storage quota (dashboard shows real DB size vs limit)
+DATABASE_STORAGE_LIMIT_MB=512
+PRISMA_PLAN=free
+
 AUTH_SECRET=PASTE_64_CHAR_HEX
 NEXTAUTH_SECRET=PASTE_64_CHAR_HEX
 SUPER_ADMIN_SECURITY_CODE=CYBER-LINK-2026
@@ -130,7 +166,7 @@ CRON_SECRET=CyberLink-Cron-2026-Secret
 DEFAULT_TENANT_SCHEMA=tenant_001
 
 SYSLOG_UDP_PORT=514
-SOCKET_PORT=3001
+SOCKET_PORT=3003
 SYSLOG_FILE=/var/log/mikrotik/isp-syslog.log
 SYSLOG_TAIL_FILE=true
 ```
@@ -141,23 +177,17 @@ Secret generate:
 openssl rand -hex 32
 ```
 
-Save: `Ctrl+O` → Enter → `Ctrl+X`
+**`DATABASE_URL` কোথা থেকে:** [prisma.io](https://www.prisma.io) Console → your database → **Connect** → pooled URL copy করুন।
 
-### Phase B — Domain ready হলে (PART 10 এর পর)
+**Plan limits (`PRISMA_PLAN`):** `free` = 512 MB · `starter` = 10 GB · `pro` = 50 GB · `business` = 100 GB
 
-`.env.production.local` এ URLs বদলান (example):
+### Domain ready হলে (PART 10)
 
 ```env
 NEXT_PUBLIC_MARKETING_URL=https://www.YOUR-DOMAIN.com
 NEXT_PUBLIC_ADMIN_URL=https://admin.YOUR-DOMAIN.com
 NEXT_PUBLIC_OPERATOR_URL=https://app.YOUR-DOMAIN.com
 NEXT_PUBLIC_API_URL=https://app.YOUR-DOMAIN.com
-
-AUTH_ADMIN_URL=https://admin.YOUR-DOMAIN.com
-AUTH_OPERATOR_URL=https://app.YOUR-DOMAIN.com
-AUTH_URL=https://app.YOUR-DOMAIN.com
-NEXTAUTH_URL=https://app.YOUR-DOMAIN.com
-NEXT_PUBLIC_APP_URL=https://app.YOUR-DOMAIN.com
 NEXT_PUBLIC_SOCKET_URL=https://app.YOUR-DOMAIN.com
 
 AUTH_COOKIE_SECURE=true
@@ -167,7 +197,35 @@ AUTH_COOKIE_SECURE=true
 
 ---
 
-# PART 5 — Build + Database + PM2 (সব ৩ Section একসাথে)
+# PART 5 — Database (Prisma cloud — VPS থেকে run)
+
+VPS থেকে Prisma DB-তে connect হয় `DATABASE_URL` দিয়ে। **প্রথম deploy:**
+
+```bash
+cd /opt/isp-log-management
+
+# Fresh Prisma DB (schema + production seeds — no demo data)
+npm run db:setup
+
+# Versioned patches (idempotent — safe every deploy)
+npm run db:migrate
+
+# MikroTik router → tenant map sync
+npm run db:sync-routers
+```
+
+| Command | কখন |
+|---------|------|
+| `npm run db:setup` | প্রথমবার নতুন Prisma DB |
+| `npm run db:migrate` | **প্রতি deploy** — pending migrations apply |
+| `npm run db:sync-routers` | device/router table update এর পর |
+| `npm run db:purge-demo` | পুরনো demo data থাকলে একবার clean |
+
+> Local dev: root `.env.local` — VPS: `.env.production.local` (PM2 `load-env.cjs` পড়ে)
+
+---
+
+# PART 6 — Build + PM2
 
 ```bash
 cd /opt/isp-log-management
@@ -175,9 +233,7 @@ cd /opt/isp-log-management
 npm ci
 npm run build:all
 
-npm run db:setup          # first time only (skip if tables exist)
-npm run db:migrate        # patches: api_user, MikroTik, branding, demo, SFP1 router
-
+# UDP 514 bind (privileged port)
 sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))
 
 npm run pm2:start
@@ -188,30 +244,36 @@ pm2 status
 
 **Expected PM2:**
 
-| PM2 name | Section | Port |
-|----------|---------|------|
-| `isp-marketing` | SECTION 1 | 3000 |
-| `isp-super-admin` | SECTION 2 | 3001 |
-| `isp-operator` | SECTION 3 | 3002 |
-| `isp-syslog-listener` | MikroTik logs | UDP 514 |
+| PM2 name | Port | Role |
+|----------|------|------|
+| `isp-marketing` | 3000 | Marketing |
+| `isp-super-admin` | 3001 | Super Admin |
+| `isp-operator` | 3002 | Operator + `/api/*` |
+| `isp-syslog-listener` | UDP 514, Socket **3003** | MikroTik ingest |
+
+```bash
+pm2 logs isp-operator --lines 30
+pm2 logs isp-syslog-listener --lines 30
+```
 
 ---
 
-# PART 6 — Firewall
+# PART 7 — Firewall
 
-### Phase A — IP + Port (এখন)
+### Phase A — IP + port (এখন)
 
 ```bash
 sudo ufw allow OpenSSH
 sudo ufw allow 3000/tcp
 sudo ufw allow 3001/tcp
 sudo ufw allow 3002/tcp
+sudo ufw allow 3003/tcp
 sudo ufw allow 514/udp
 sudo ufw enable
 sudo ufw status
 ```
 
-### Phase B — Domain + nginx (পore)
+### Phase B — Domain + nginx
 
 ```bash
 sudo ufw allow OpenSSH
@@ -221,23 +283,11 @@ sudo ufw allow 514/udp
 sudo ufw enable
 ```
 
-> Domain mode-এ port 3000/3001/3002 **public open করবেন না**।
+Domain mode-এ **3000/3001/3002 public open করবেন না** — nginx দিয়ে 80/443 proxy।
 
 ---
 
-# PART 7 — SECTION 1: Marketing Portal
-
-| Item | Value |
-|------|-------|
-| App | `apps/marketing` |
-| PM2 | `isp-marketing` |
-| Port | **3000** |
-| এখন | http://160.187.175.30:3000 |
-| Domain (পore) | `www._______________` |
-
-**কাজ:** Landing page, pricing, demo request form
-
-**Test:**
+# PART 8 — SECTION 1: Marketing (:3000)
 
 ```bash
 curl -I http://127.0.0.1:3000/
@@ -245,87 +295,45 @@ curl -I http://127.0.0.1:3000/
 
 Browser: http://160.187.175.30:3000
 
-**Rebuild শুধু marketing:**
+Rebuild:
 
 ```bash
-npm run build:marketing
-npm run pm2:restart
+npm run build:marketing && npm run pm2:restart
 ```
 
 ---
 
-# PART 8 — SECTION 2: Super Admin Portal
-
-| Item | Value |
-|------|-------|
-| App | `apps/super-admin` |
-| PM2 | `isp-super-admin` |
-| Port | **3001** |
-| এখন | http://160.187.175.30:3001 |
-| Domain (পore) | `admin._______________` |
-
-**কাজ:** Tenant, billing, metrics, demo approve, platform settings
-
-**Login:**
-
-| Email | Password | Extra |
-|-------|----------|-------|
-| `superadmin@cyberlink.com` | `Super@Secure2026!` | Code: `CYBER-LINK-2026` |
-
-**Test:**
+# PART 9 — SECTION 2: Super Admin (:3001)
 
 ```bash
 curl -I http://127.0.0.1:3001/
 ```
 
-Browser: http://160.187.175.30:3001 → auto redirect `/admin/login`
+Browser: http://160.187.175.30:3001 → `/admin/login`
 
-> ⚠️ `160.187.175.30:3000/admin` কাজ করবে **না** — Admin শুধু **:3001**
-
-**Rebuild শুধু admin:**
+Rebuild:
 
 ```bash
-npm run build:admin
-npm run pm2:restart
+npm run build:admin && npm run pm2:restart
 ```
 
 ---
 
-# PART 9 — SECTION 3: Operator Portal + API + Syslog
+# PART 10 — SECTION 3: Operator + API + Syslog (:3002)
 
-| Item | Value |
-|------|-------|
-| App | `apps/operator` |
-| PM2 | `isp-operator` |
-| Port | **3002** |
-| এখন | http://160.187.175.30:3002 |
-| Domain (পore) | `app._______________` |
-
-**কাজ:** Operator login, logs, devices, dashboard, **সব `/api/*`**, BTRC export
-
-**Login:**
-
-| Email | Password |
-|-------|----------|
-| `admin@cyberlink.com` | `Admin@123456` |
-
-**Important URLs (SECTION 3):**
-
-| Service | URL (IP mode) |
-|---------|---------------|
-| Operator login | http://160.187.175.30:3002 |
-| Full dashboard | http://160.187.175.30:3002/dashboard |
+| Service | URL |
+|---------|-----|
+| Login | http://160.187.175.30:3002 |
+| Dashboard | http://160.187.175.30:3002/dashboard |
 | API health | http://160.187.175.30:3002/api/health |
 | Log ingest | POST http://160.187.175.30:3002/api/logs/receive |
-
-**Test:**
 
 ```bash
 curl http://127.0.0.1:3002/api/health
 npm run test:log-ingest
 ```
 
-**Device register (Dashboard → Devices):**
+**Registered device (production):**
 
 | Field | Value |
 |-------|-------|
@@ -334,20 +342,15 @@ npm run test:log-ingest
 | NAT IP | `160.187.175.26` |
 | Syslog Port | `514` |
 
-**Rebuild শুধু operator:**
+Rebuild:
 
 ```bash
-npm run build:operator
-npm run pm2:restart
+npm run build:operator && npm run pm2:restart
 ```
 
 ---
 
-# PART 10 — ৩টা Domain Add করা (পore, nginx)
-
-Domain কিনলে / DNS ready হলে এই part follow করুন।
-
-### 10.1 Domain sheet fill
+# PART 11 — Domain + nginx (optional)
 
 ```bash
 cd /opt/isp-log-management
@@ -355,77 +358,29 @@ cp deploy/domains.template.env deploy/domains.env
 nano deploy/domains.env
 ```
 
-Example:
-
-```env
-MARKETING_DOMAIN=www.cyberlink.com
-MARKETING_DOMAIN_ROOT=cyberlink.com
-ADMIN_DOMAIN=admin.cyberlink.com
-OPERATOR_DOMAIN=app.cyberlink.com
-VPS_IP=160.187.175.30
-```
-
-### 10.2 DNS (domain registrar)
-
-| Type | Name | Points to |
-|------|------|-----------|
-| A | `@` | `160.187.175.30` |
-| A | `www` | `160.187.175.30` |
-| A | `admin` | `160.187.175.30` |
-| A | `app` | `160.187.175.30` |
-
-Verify: `dig admin.YOUR-DOMAIN.com +short` → `160.187.175.30`
-
-### 10.3 nginx config
-
-**Option 1 — Ready example (cyberlink.com):**
+DNS A records → `160.187.175.30` (`www`, `admin`, `app`)
 
 ```bash
 sudo cp deploy/nginx/three-portals.conf /etc/nginx/sites-available/isp-three-portals
-```
+# অথবা template: deploy/nginx/three-portals.template.conf
 
-**Option 2 — Template (আপনার domain):**
-
-```bash
-cp deploy/nginx/three-portals.template.conf /tmp/isp-three-portals.conf
-nano /tmp/isp-three-portals.conf
-# Replace: YOUR-MARKETING-DOMAIN, YOUR-ADMIN-DOMAIN, YOUR-APP-DOMAIN
-sudo cp /tmp/isp-three-portals.conf /etc/nginx/sites-available/isp-three-portals
-```
-
-Enable:
-
-```bash
-sudo ln -sf /etc/nginx/sites-available/isp-three-portals /etc/nginx/sites-enabled/isp-three-portals
+sudo ln -sf /etc/nginx/sites-available/isp-three-portals /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
-sudo systemctl enable nginx
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**nginx mapping:**
+| Domain | → Backend |
+|--------|-----------|
+| `www.*` | `127.0.0.1:3000` |
+| `admin.*` | `127.0.0.1:3001` |
+| `app.*` | `127.0.0.1:3002` |
+| `app.*/socket.io/` | `127.0.0.1:3003` |
 
-| Section | Domain | → Backend |
-|---------|--------|-----------|
-| SECTION 1 | `www.YOUR-DOMAIN.com` | `127.0.0.1:3000` |
-| SECTION 2 | `admin.YOUR-DOMAIN.com` | `127.0.0.1:3001` |
-| SECTION 3 | `app.YOUR-DOMAIN.com` | `127.0.0.1:3002` |
-| Socket.IO | `app.YOUR-DOMAIN.com/socket.io/` | `127.0.0.1:3001` |
-
-### 10.4 `.env.production.local` update
-
-PART 4 Phase B URLs set করুন → rebuild:
-
-```bash
-npm run build:all
-npm run pm2:restart
-```
-
-Firewall Phase B (PART 6) apply করুন — port 3000/3001/3002 close, 80/443 open।
+`.env` → https URLs → `npm run build:all` → `npm run pm2:restart`
 
 ---
 
-# PART 11 — SSL (HTTPS) — Domain এর পর
+# PART 12 — SSL (HTTPS)
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -437,42 +392,27 @@ sudo certbot --nginx \
   -d app.YOUR-DOMAIN.com
 ```
 
-SSL এর পর `.env`-এ `https://` URLs + `AUTH_COOKIE_SECURE=true` → `npm run build:all` → `npm run pm2:restart`
+SSL পর `AUTH_COOKIE_SECURE=true` + https URLs → rebuild + restart
 
 ---
 
-# PART 12 — MikroTik Config (160.187.175.26)
+# PART 13 — MikroTik (160.187.175.26)
 
-Winbox → **160.187.175.26**
-
-**Import:**
-
-1. Upload `deploy/mikrotik/clc-production.rsc`
-2. Terminal: `/import file-name=clc-production.rsc`
-
-**Manual:**
+Winbox → Files → upload `deploy/mikrotik/clc-production.rsc` → Terminal:
 
 ```routeros
-/system logging action
-add name=clc-logserver target=remote remote=160.187.175.30 remote-port=514
-
-/system logging
-add topics=ppp,info action=clc-logserver
-add topics=pppoe,info action=clc-logserver
-add topics=firewall,info action=clc-logserver
-
-/ip firewall filter
-add chain=forward action=log log-prefix="FWD:" comment="CLC-FWD-LOG"
-
-/ip firewall nat
-add chain=srcnat action=log log-prefix="NAT:" comment="CLC-NAT-LOG"
+/import file-name=clc-production.rsc
 ```
+
+Syslog target: `160.187.175.30:514`
 
 Verify: `/log print where topics~"firewall|ppp"`
 
+Full details: [deploy/mikrotik/README.md](./mikrotik/README.md)
+
 ---
 
-# PART 13 — rsyslog (optional backup)
+# PART 14 — rsyslog backup (optional)
 
 ```bash
 sudo cp /opt/isp-log-management/deploy/rsyslog/mikrotik.conf /etc/rsyslog.d/50-mikrotik.conf
@@ -481,47 +421,42 @@ sudo systemctl restart rsyslog
 
 ---
 
-# PART 14 — Test Everything
+# PART 15 — Test checklist
 
-### ৩ Section browser check
+| Check | Command / URL |
+|-------|----------------|
+| Marketing | http://160.187.175.30:3000 |
+| Super Admin login | http://160.187.175.30:3001 |
+| Operator login | http://160.187.175.30:3002 |
+| API health | `curl http://127.0.0.1:3002/api/health` |
+| DB connection | `npm run db:migrate` (no error) |
+| Log ingest | `npm run test:log-ingest` |
+| PM2 all online | `pm2 status` |
+| Dashboard storage | Operator → Dashboard → **DB storage** card (Prisma real size) |
+| Live logs | Dashboard → Logs → Last 7 days |
 
-| Section | IP mode | Domain mode (পore) |
-|---------|---------|---------------------|
-| SECTION 1 Marketing | http://160.187.175.30:3000 | https://www.YOUR-DOMAIN.com |
-| SECTION 2 Super Admin | http://160.187.175.30:3001 | https://admin.YOUR-DOMAIN.com |
-| SECTION 3 Operator | http://160.187.175.30:3002 | https://app.YOUR-DOMAIN.com |
-| API health | http://160.187.175.30:3002/api/health | https://app.YOUR-DOMAIN.com/api/health |
-
-### VPS terminal
-
-```bash
-cd /opt/isp-log-management
-npm run test:log-ingest
-pm2 status
-```
-
-Manual log test:
+Manual ingest test:
 
 ```bash
 curl -X POST http://160.187.175.30:3002/api/logs/receive \
   -H "Content-Type: text/plain" \
-  -H "x-ingest-secret: CyberLink-Ingest-2026-Secret" \
+  -H "x-ingest-secret: YOUR_INGEST_SECRET" \
   -H "x-router-ip: 160.187.175.26" \
   -d "<30>Jun  8 15:00:01 CLC-SFP1-NAT firewall,info pppoe_user=test@clc mac_address=48:A9:8A:C2:28:BF user_ip=10.121.124.50 nat_ip=160.187.175.26 src-address=10.121.124.50:51234 dst-address=8.8.8.8:53 protocol=udp"
 ```
 
-Dashboard → **Logs** → Range: **Last 7 days** → Badge: **Live**
-
 ---
 
-# PART 15 — Update / Redeploy
+# PART 16 — Update / redeploy
 
 ```bash
 cd /opt/isp-log-management
 git pull
 npm ci
+npm run db:migrate
 npm run build:all
 npm run pm2:restart
+npm run db:sync-routers
 pm2 status
 ```
 
@@ -531,41 +466,44 @@ pm2 status
 
 | সমস্যা | সমাধান |
 |--------|---------|
-| **`Can't resolve '@isp/features/logs'`** | `packages/features/src/logs/` git-এ ছিল না (`.gitignore` এ `logs/` rule)। Fix: latest pull। check: `ls packages/features/src/logs/`. Manual: PC থেকে `useLogSocket.ts` + `index.ts` upload |
-| **`api_user` column missing** | Migration skip | `npm run db:migrate` (adds api_user, routers, session_logs) |
-| `:3000/admin` 404 | Admin = **SECTION 2** → port **3001** |
-| `:3001` বা `:3002` 404 | latest code + `npm run build:all` + restart |
-| Login হয়, logout নয় | IP mode: `AUTH_COOKIE_SECURE=false` |
-| Site open হয় না | `pm2 status` + `sudo systemctl status nginx` |
-| MikroTik log নেই | `ufw allow 514/udp` + router remote syslog |
+| `DATABASE_URL` / connection error | Prisma Console থেকে pooled URL copy; `sslmode=require` রাখুন; VPS IP whitelist লাগে না (cloud DB) |
+| `max clients reached` pool | `DATABASE_POOL_MAX=3` রাখুন; Prisma free plan connection limit |
+| `isp-syslog-listener errored` | `SOCKET_PORT=3003` (3001 নয়); `pm2 restart isp-syslog-listener` |
+| Login হয়, logout হয় না | IP mode: `AUTH_COOKIE_SECURE=false` |
+| `:3000/admin` 404 | Admin = **:3001** |
+| MikroTik log আসে না | `ufw allow 514/udp`; router remote = `160.187.175.30:514` |
 | nginx 502 | `pm2 logs isp-operator` |
-| Domain কাজ করে না | DNS A record → `160.187.175.30` |
-| **isp-syslog-listener errored** | Port 3001 clash with admin | `.env` এ `SOCKET_PORT=3003` → `pm2 restart isp-syslog-listener` |
+| Demo/fake logs দেখায় | `npm run db:purge-demo` + app rebuild |
+| Dashboard storage `—` | `DATABASE_URL` ঠিক আছে কিনা; `PRISMA_PLAN` / `DATABASE_STORAGE_LIMIT_MB` set করুন |
+| Auth 404 on operator | latest code pull; `apps/operator/src/proxy.ts` exists; `npm run build:operator` |
 
 ```bash
 pm2 logs isp-marketing --lines 30
 pm2 logs isp-super-admin --lines 30
 pm2 logs isp-operator --lines 30
 pm2 logs isp-syslog-listener --lines 30
+sudo tail -30 /var/log/nginx/error.log
 ```
 
 ---
 
-# Quick Reference Card
+# Quick reference
 
 ```
-VPS IP:           160.187.175.30
-MikroTik IP:      160.187.175.26
+VPS:              160.187.175.30
+MikroTik:         160.187.175.26
+Database:         Prisma Postgres (pooled.db.prisma.io) — cloud
 Project:          /opt/isp-log-management
 Env:              .env.production.local
-Domain sheet:     deploy/domains.env
 
-SECTION 1 (Marketing):   :3000  →  www.YOUR-DOMAIN.com
-SECTION 2 (Super Admin):   :3001  →  admin.YOUR-DOMAIN.com
-SECTION 3 (Operator+API):  :3002  →  app.YOUR-DOMAIN.com
-Syslog:                    UDP 514 → 160.187.175.30
+Marketing:        :3000
+Super Admin:      :3001
+Operator + API:   :3002
+Syslog UDP:       :514
+Socket.IO:        :3003
 
 Build:            npm run build:all
+DB:               npm run db:migrate
 PM2:              npm run pm2:start | pm2:restart
 Test:             npm run test:log-ingest
 ```
@@ -574,17 +512,13 @@ Test:             npm run test:log-ingest
 
 ## Deploy files index
 
-| File | কাজ |
-|------|-----|
-| `deploy/VPS-HOSTING.md` | **এই guide** (main) |
-| `deploy/domains.template.env` | ৩ domain fill-in sheet |
-| `deploy/env.vps.example` | `.env.production.local` template |
-| `deploy/ecosystem.config.cjs` | PM2 — 4 process |
-| `deploy/nginx/three-portals.conf` | nginx (cyberlink example) |
-| `deploy/nginx/three-portals.template.conf` | nginx (your domain) |
-| `deploy/mikrotik/clc-production.rsc` | MikroTik syslog |
-| `deploy/VPS-3-PORTAL-HOSTING.md` | Short summary (→ এই file) |
-
----
-
-**পুরনো single-port guide (`:3000` only) obsolete** — এখন ৩ Section আলাদা। Migrate: env update → `build:all` → PM2 restart → firewall/nginx update।
+| File | Purpose |
+|------|---------|
+| **deploy/VPS-HOSTING.md** | এই guide (main) |
+| deploy/VPS-3-PORTAL-HOSTING.md | Short summary |
+| deploy/VPS-PM2-MIGRATE.md | পুরনো single-app PM2 → monorepo |
+| deploy/env.vps.example | `.env.production.local` template |
+| deploy/ecosystem.config.cjs | PM2 — 4 processes |
+| deploy/nginx/three-portals.conf | nginx 3 domains + socket :3003 |
+| deploy/mikrotik/clc-production.rsc | MikroTik production syslog |
+| deploy/domains.template.env | Domain fill-in sheet |
