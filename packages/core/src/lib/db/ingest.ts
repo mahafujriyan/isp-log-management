@@ -283,15 +283,10 @@ export async function ingestParsedLog(
 
   await upsertPppoeUser(schema, routerId, parsed);
 
-  if (parsed.nat_ip || parsed.source_ip) {
-    const touchIp = parsed.nat_ip || parsed.source_ip;
+  if (parsed.source_ip || parsed.nat_ip) {
+    const touchIp = parsed.source_ip || parsed.nat_ip;
     const { touchDeviceLastSeen } = await import("@isp/core/services/device.service");
     await touchDeviceLastSeen(schema, touchIp).catch(() => {});
-    await db.query(
-      `UPDATE "${schema}".routers SET last_seen_at = NOW(), status = 'active'
-       WHERE host(router_ip) = $1 OR host(nat_ip) = $1`,
-      [touchIp]
-    );
   }
 
   return {

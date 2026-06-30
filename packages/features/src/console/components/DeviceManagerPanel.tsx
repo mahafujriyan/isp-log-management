@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Device } from "@isp/core/types";
 import { useTenantContext } from "@isp/auth/hooks/useTenantContext";
 import { Tag } from "@isp/ui/Tag";
-import { Edit, Loader2, Plus, Trash2, X } from "lucide-react";
+import { Edit, Eye, EyeOff, Loader2, Plus, Power, RefreshCw, Trash2, X } from "lucide-react";
 
 interface DeviceManagerPanelProps {
   variant?: "devices" | "servers";
@@ -60,6 +60,7 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
     api_port: 8728,
   });
   const [logServerIp, setLogServerIp] = useState("");
+  const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({});
 
   const label = variant === "servers" ? "Server" : "Device";
   const plural = variant === "servers" ? "servers" : "devices";
@@ -81,6 +82,8 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
 
   useEffect(() => {
     loadDevices();
+    const interval = setInterval(loadDevices, 30_000);
+    return () => clearInterval(interval);
   }, [loadDevices]);
 
   useEffect(() => {
@@ -162,7 +165,7 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
         name: form.name,
         device_ip: form.ip,
         config_type: form.config,
-        nat_ip: form.nat_ip || form.ip,
+        nat_ip: form.nat_ip.trim() || form.ip,
         syslog_user: form.user || form.api_user,
         syslog_port: form.port,
         listen_port: form.listen_port,
@@ -183,6 +186,36 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
       setError(formatFetchError(err, "Save"));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleRecheck() {
+    if (tenantId == null) return;
+    try {
+      const res = await fetch(`/api/devices/recheck`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      });
+      await readApiResponse(res);
+      await loadDevices();
+    } catch (err) {
+      setError(formatFetchError(err, "Recheck"));
+    }
+  }
+
+  async function handleToggle(device: Device) {
+    const enable = device.status === "offline";
+    try {
+      const res = await fetch(`/api/devices/${device.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: tenantId, status: enable ? "active" : "disabled" }),
+      });
+      await readApiResponse(res);
+      await loadDevices();
+    } catch (err) {
+      setError(formatFetchError(err, enable ? "Enable" : "Disable"));
     }
   }
 
@@ -221,6 +254,13 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
         />
         <button
           type="button"
+          onClick={handleRecheck}
+          className="flex items-center gap-1 rounded-md border border-[#E2E8F0] px-3 py-1.5 text-[12px] text-[#64748B] hover:bg-[#F8FAFC]"
+        >
+          <RefreshCw size={13} /> Recheck
+        </button>
+        <button
+          type="button"
           onClick={openCreate}
           className="ml-auto flex items-center gap-1 rounded-md bg-[#1976D2] px-3.5 py-1.5 text-[12px] font-medium text-white"
         >
@@ -237,12 +277,26 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
           <Loader2 className="animate-spin text-[#1565C0]" size={24} />
         </div>
       ) : (
-        <div className="dashboard-scroll max-h-[480px] overflow-y-auto rounded-lg border border-[#E2E8F0]">
-          <table className="w-full border-collapse text-[12px]">
+        <div className="dashboard-scroll max-h-[560px] overflow-x-auto overflow-y-auto rounded-lg border border-[#E2E8F0]">
+          <table className="w-full min-w-[1100px] border-collapse text-[12px]">
             <thead>
               <tr className="sticky top-0 bg-[#F8FAFC] text-[11px] font-medium text-[#64748B]">
-                {["#", `${label} Name`, "IP", "Config", "NAT IP", "User", "Port", "Listen", "Status", "Users Today", "Action"].map((h) => (
-                  <th key={h} className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left">{h}</th>
+                {[
+                  "#",
+                  "Device Name",
+                  "Device IP",
+                  "Configuration",
+                  "NAT IP",
+                  "userName",
+                  "Password",
+                  "Port",
+                  "Listening Port",
+                  "Users Today",
+                  "Action",
+                ].map((h) => (
+                  <th key={h} className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-left whitespace-nowrap">
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -250,34 +304,66 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-3 py-8 text-center text-[#94A3B8]">
-                    No {plural} found
+                    No {plural} found — Add Device with username + password
                   </td>
                 </tr>
               ) : (
                 filtered.map((d, i) => (
-                  <tr key={d.id} className="hover:bg-[#F8FAFC]">
+                  <tr key={d.id} className={i % 2 === 0 ? "bg-white hover:bg-[#F8FAFC]" : "bg-[#FAFBFC] hover:bg-[#F1F5F9]"}>
                     <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">{i + 1}</td>
-                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 font-medium">{d.name}</td>
+                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">
+                      <div className="font-medium text-[#0F172A]">{d.name}</div>
+                      <span
+                        className={`mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                          d.status === "receiving"
+                            ? "bg-[#E8F5E9] text-[#2E7D32]"
+                            : "bg-[#FFEBEE] text-[#C62828]"
+                        }`}
+                      >
+                        {d.status === "receiving" ? "● Receiving logs" : "○ Offline"}
+                      </span>
+                    </td>
                     <td className="mono border-b border-[#E2E8F0] px-2.5 py-1.5">{d.ip}</td>
                     <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">
                       <Tag variant={d.config === "NAT" ? "nat" : "acc"}>{d.config}</Tag>
                     </td>
-                    <td className="mono border-b border-[#E2E8F0] px-2.5 py-1.5">{d.nat_ip}</td>
-                    <td className="mono border-b border-[#E2E8F0] px-2.5 py-1.5">{d.user}</td>
-                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">{d.port}</td>
-                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">{d.listen_port}</td>
+                    <td className="mono border-b border-[#E2E8F0] px-2.5 py-1.5 text-[#1565C0]">{d.nat_ip}</td>
+                    <td className="mono border-b border-[#E2E8F0] px-2.5 py-1.5">{d.api_user || d.user}</td>
                     <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">
-                      <Tag variant={d.status === "offline" ? "off" : "ok"}>
-                        {d.status === "offline" ? "Offline" : "● Receiving"}
-                      </Tag>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="mono text-[#64748B]">
+                          {showPasswords[d.id] ? (d.has_api_password ? "saved ✓" : "—") : "***"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords((p) => ({ ...p, [d.id]: !p[d.id] }))}
+                          className="text-[#64748B] hover:text-[#1565C0]"
+                          title="Password stored securely — not shown in list"
+                        >
+                          {showPasswords[d.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </span>
                     </td>
-                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-center">{d.users_today}</td>
-                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">
-                      <button type="button" onClick={() => openEdit(d)} className="mr-1.5 inline text-[#1565C0]">
+                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-center">{d.port}</td>
+                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-center">{d.listen_port}</td>
+                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-center font-medium">{d.users_today}</td>
+                    <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 whitespace-nowrap">
+                      <button type="button" onClick={() => openEdit(d)} className="mr-1.5 inline text-[#1565C0]" title="Edit">
                         <Edit size={15} />
                       </button>
-                      <button type="button" onClick={() => handleDelete(d)} className="inline text-[#C62828]">
+                      <button type="button" onClick={() => handleDelete(d)} className="mr-1.5 inline text-[#C62828]" title="Delete">
                         <Trash2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggle(d)}
+                        className={`mr-1.5 inline ${d.status === "offline" ? "text-[#2E7D32]" : "text-[#E65100]"}`}
+                        title={d.status === "offline" ? "Enable" : "Disable"}
+                      >
+                        <Power size={15} />
+                      </button>
+                      <button type="button" onClick={handleRecheck} className="inline text-[#1565C0]" title="Recheck all devices">
+                        <RefreshCw size={15} />
                       </button>
                     </td>
                   </tr>
@@ -304,8 +390,8 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
             )}
             {variant === "devices" && (
               <p className="mb-3 rounded-lg bg-[#EFF6FF] px-3 py-2 text-[11px] leading-relaxed text-[#1E40AF]">
-                <strong>NAT</strong> = firewall/NAT logs · <strong>ACCESS</strong> = PPPoE/access router.
-                Username + password required. Syslog target: <strong>160.187.175.30:514</strong>
+                <strong>NAT</strong> = firewall/NAT router · <strong>ACCESS</strong> = PPPoE router (can share same NAT IP).
+                Username + password required. Syslog → <strong>160.187.175.30:514</strong>
               </p>
             )}
 
@@ -337,18 +423,18 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
                   />
                 </label>
               ))}
-              {form.config === "NAT" && (
-                <label>
-                  <span className="mb-1 block text-[#64748B]">NAT / Public IP</span>
-                  <input
-                    type="text"
-                    value={form.nat_ip}
-                    onChange={(e) => setForm((p) => ({ ...p, nat_ip: e.target.value }))}
-                    placeholder="Same as router IP if single WAN"
-                    className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
-                  />
-                </label>
-              )}
+              <label>
+                <span className="mb-1 block text-[#64748B]">
+                  NAT IP {form.config === "ACCESS" ? "(shared gateway — can match NAT router)" : "(public/WAN IP)"}
+                </span>
+                <input
+                  type="text"
+                  value={form.nat_ip}
+                  onChange={(e) => setForm((p) => ({ ...p, nat_ip: e.target.value }))}
+                  placeholder={form.config === "ACCESS" ? "e.g. 160.187.175.9 (NAT router IP)" : "Same as router IP if single WAN"}
+                  className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                />
+              </label>
               <label>
                 <span className="mb-1 block text-[#64748B]">Router type</span>
                 <select

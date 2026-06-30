@@ -62,14 +62,11 @@ const deviceSelectSql = `
          (d.api_password IS NOT NULL AND d.api_password <> '') AS has_api_password,
          d.status, d.last_seen_at, d.created_at,
          (
-           SELECT COUNT(DISTINCT s.pppoe_user)::int
+           SELECT COUNT(DISTINCT NULLIF(TRIM(s.pppoe_user), ''))::int
            FROM "%SCHEMA%".session_logs s
+           INNER JOIN "%SCHEMA%".routers r ON r.id = s.router_id
            WHERE s.log_time >= CURRENT_DATE
-             AND s.router_id IN (
-               SELECT r.id FROM "%SCHEMA%".routers r
-               WHERE host(r.router_ip) = host(d.device_ip)
-                  OR (d.nat_ip IS NOT NULL AND host(r.router_ip) = host(d.nat_ip))
-             )
+             AND host(r.router_ip) = host(d.device_ip)
          ) AS users_today
   FROM "%SCHEMA%".devices d
 `;
@@ -107,6 +104,24 @@ export async function listDisabledTenantDevices(schemaName: string): Promise<Dev
 
 export async function recheckTenantDevices(schemaName: string): Promise<number> {
   const schema = assertValidTenantSchema(schemaName);
+
+  await db.query(
+    `DELETE FROM public.router_tenant_map m
+     WHERE m.schema_name = $1
+       AND NOT EXISTS (
+         SELECT 1 FROM "${schema}".devices d
+         WHERE host(d.device_ip) = host(m.router_ip)
+       )`,
+    [schema]
+  );
+
+  await db.query(
+    `DELETE FROM "${schema}".routers r
+     WHERE NOT EXISTS (
+       SELECT 1 FROM "${schema}".devices d WHERE host(d.device_ip) = host(r.router_ip)
+     )`
+  );
+
   const result = await db.query(
     `UPDATE "${schema}".devices SET status = 'disabled'
      WHERE status = 'active'
@@ -222,13 +237,57 @@ export async function updateTenantDevice(
   );
 
   if (!row) throw new Error("Device not found");
+
+  const tenant = await getTenantBySchema(schemaName);
+  if (tenant) {
+    const { syncDeviceAsRouter } = await import("@isp/core/lib/db/ingest");
+    await syncDeviceAsRouter(schemaName, tenant.id, {
+      name: row.name,
+      device_ip: row.device_ip,
+      nat_ip: row.nat_ip,
+      syslog_port: row.syslog_port,
+    }).catch(() => {});
+  }
+
   return mapDevice({ ...row, users_today: 0 });
+}
+
+export async function toggleTenantDevice(
+  schemaName: string,
+  deviceId: number,
+  enabled: boolean
+): Promise<Device> {
+  return updateTenantDevice(schemaName, deviceId, {
+    status: enabled ? "active" : "disabled",
+  });
 }
 
 export async function deleteTenantDevice(schemaName: string, deviceId: number): Promise<boolean> {
   const schema = assertValidTenantSchema(schemaName);
-  const result = await db.query(`DELETE FROM "${schema}".devices WHERE id = $1`, [deviceId]);
-  return (result.rowCount ?? 0) > 0;
+
+  const device = await db.getOne<{ device_ip: string; nat_ip: string | null }>(
+    `SELECT host(device_ip) AS device_ip, host(nat_ip) AS nat_ip
+     FROM "${schema}".devices WHERE id = $1`,
+    [deviceId]
+  );
+  if (!device) return false;
+
+  await db.query(`DELETE FROM "${schema}".devices WHERE id = $1`, [deviceId]);
+
+  await db.query(`DELETE FROM public.router_tenant_map WHERE host(router_ip) = $1`, [
+    device.device_ip,
+  ]);
+
+  await db.query(
+    `DELETE FROM "${schema}".routers r
+     WHERE host(r.router_ip) = $1
+       AND NOT EXISTS (
+         SELECT 1 FROM "${schema}".devices d WHERE host(d.device_ip) = host(r.router_ip)
+       )`,
+    [device.device_ip]
+  );
+
+  return true;
 }
 
 export async function touchDeviceLastSeen(schemaName: string, deviceIp: string): Promise<void> {
@@ -236,7 +295,13 @@ export async function touchDeviceLastSeen(schemaName: string, deviceIp: string):
   await db.query(
     `UPDATE "${schema}".devices
      SET last_seen_at = NOW(), status = 'active'
-     WHERE host(device_ip) = $1 OR host(nat_ip) = $1`,
+     WHERE host(device_ip) = $1`,
+    [deviceIp]
+  );
+  await db.query(
+    `UPDATE "${schema}".routers
+     SET last_seen_at = NOW(), status = 'active'
+     WHERE host(router_ip) = $1`,
     [deviceIp]
   );
 }
@@ -294,10 +359,7 @@ export async function resolveDeviceRouterId(
   const row = await db.getOne<{ router_id: number }>(
     `SELECT r.id AS router_id
      FROM "${schema}".devices d
-     JOIN "${schema}".routers r
-       ON host(r.router_ip) = host(d.device_ip)
-       OR (d.nat_ip IS NOT NULL AND host(r.router_ip) = host(d.nat_ip))
-       OR (r.nat_ip IS NOT NULL AND host(r.nat_ip) = host(d.device_ip))
+     INNER JOIN "${schema}".routers r ON host(r.router_ip) = host(d.device_ip)
      WHERE d.id = $1
      LIMIT 1`,
     [deviceId]
@@ -305,25 +367,29 @@ export async function resolveDeviceRouterId(
   return row?.router_id ?? null;
 }
 
-/** Router IDs that sent syslog within the last 30 minutes. */
+/** True when at least one registered device sent syslog within 30 minutes. */
+export async function isAnyRouterConnected(schemaName: string): Promise<boolean> {
+  const schema = assertValidTenantSchema(schemaName);
+  const row = await db.getOne<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+     FROM "${schema}".devices
+     WHERE last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
+       AND COALESCE(status, 'active') NOT IN ('disabled', 'offline')`
+  );
+  return Number(row?.count ?? 0) > 0;
+}
+
+/** Router IDs for devices currently receiving syslog. */
 export async function listConnectedRouterIds(schemaName: string): Promise<number[]> {
   const schema = assertValidTenantSchema(schemaName);
   const rows = await db.getMany<{ id: number }>(
     `SELECT DISTINCT r.id
-     FROM "${schema}".routers r
-     LEFT JOIN "${schema}".devices d
-       ON host(d.device_ip) = host(r.router_ip)
-       OR (d.nat_ip IS NOT NULL AND host(r.router_ip) = host(d.nat_ip))
-     WHERE r.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
-        OR (d.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
-            AND COALESCE(d.status, 'active') NOT IN ('disabled', 'offline'))`
+     FROM "${schema}".devices d
+     INNER JOIN "${schema}".routers r ON host(r.router_ip) = host(d.device_ip)
+     WHERE d.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
+       AND COALESCE(d.status, 'active') NOT IN ('disabled', 'offline')`
   );
   return rows.map((r) => r.id);
-}
-
-export async function isAnyRouterConnected(schemaName: string): Promise<boolean> {
-  const ids = await listConnectedRouterIds(schemaName);
-  return ids.length > 0;
 }
 
 export async function listConnectedDevices(schemaName: string): Promise<Device[]> {

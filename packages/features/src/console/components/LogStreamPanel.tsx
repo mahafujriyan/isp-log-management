@@ -92,10 +92,15 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
 
   useEffect(() => {
     if (tenantId == null) return;
-    fetch(`/api/devices?tenant_id=${tenantId}`)
-      .then((r) => r.json())
-      .then((d) => setDevices(d.devices ?? []))
-      .catch(() => {});
+    const load = () => {
+      fetch(`/api/devices?tenant_id=${tenantId}`)
+        .then((r) => r.json())
+        .then((d) => setDevices(d.devices ?? []))
+        .catch(() => {});
+    };
+    load();
+    const interval = setInterval(load, 20_000);
+    return () => clearInterval(interval);
   }, [tenantId]);
 
   useEffect(() => {
