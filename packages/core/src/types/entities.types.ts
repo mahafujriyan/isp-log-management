@@ -60,6 +60,10 @@ export interface Device {
   user: string;
   port: number;
   listen_port: number;
+  api_user?: string;
+  api_port?: number;
+  has_api_password?: boolean;
+  last_seen_at?: string | null;
   status: "online" | "offline" | "receiving";
   users_today: number;
 }

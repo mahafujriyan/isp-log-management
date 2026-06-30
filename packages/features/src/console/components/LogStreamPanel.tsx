@@ -27,14 +27,17 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   const [schemaName, setSchemaName] = useState("");
   const [hint, setHint] = useState("");
   const [apiError, setApiError] = useState("");
+  const [routerConnected, setRouterConnected] = useState<boolean | null>(null);
+  const connectedDevices = devices.filter((d) => d.status === "receiving");
 
   const prependLog = useCallback((entry: LogEntry) => {
+    if (routerConnected === false) return;
     setLogs((prev) => {
       const next = [entry, ...prev].slice(0, 200);
       onStreamCount?.(next.length);
       return next;
     });
-  }, [onStreamCount]);
+  }, [onStreamCount, routerConnected]);
 
   const { connected: socketLive, stats: socketStats, error: socketError } = useLogSocket(tenantId ?? undefined, prependLog);
 
@@ -46,6 +49,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
       const params = new URLSearchParams({
         tenant_id: String(tenantId),
         limit: "150",
+        require_connected: "true",
       });
 
       if (activeTenant?.schema_name) {
@@ -69,14 +73,6 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
         return;
       }
       if (Array.isArray(data.logs)) {
-        if (data.logs.length === 0 && (data.total_in_db ?? 0) > 0 && deviceFilter) {
-          setDeviceFilter("");
-          setHint("Device filter cleared — logs use subscriber NAT IP, not router IP");
-          setTotalInDb(data.total_in_db ?? 0);
-          setSessionLogsInDb(data.session_logs_in_db ?? 0);
-          setSyslogsInDb(data.syslogs_in_db ?? 0);
-          return;
-        }
         setLogs(data.logs);
         setSource(data.source ?? "");
         setTotalInDb(data.total_in_db ?? 0);
@@ -84,6 +80,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
         setSyslogsInDb(data.syslogs_in_db ?? 0);
         setSchemaName(data.schema_name ?? activeTenant?.schema_name ?? "");
         setHint(data.hint ?? "");
+        setRouterConnected(data.router_connected ?? null);
         onStreamCount?.(data.logs.length);
       }
     } catch (err) {
@@ -129,12 +126,15 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
           onChange={(e) => setDeviceFilter(e.target.value)}
           className="rounded-md border border-[#E2E8F0] px-2.5 py-1.5 text-[12px]"
         >
-          <option value="">All devices</option>
-          {devices.map((d) => (
+          <option value="">All connected routers</option>
+          {connectedDevices.map((d) => (
             <option key={d.id} value={String(d.id)}>
-              {d.id} — {d.name} ({d.config})
+              {d.name} ({d.config}) — {d.ip}
             </option>
           ))}
+          {connectedDevices.length === 0 && devices.length > 0 && (
+            <option disabled>No router connected</option>
+          )}
         </select>
         <select
           value={range}
@@ -146,6 +146,15 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
           <option value="7d">Last 7 days</option>
           <option value="all">All time</option>
         </select>
+        <div
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium ${
+            routerConnected ? "bg-[#E8F5E9] text-[#2E7D32]" : routerConnected === false ? "bg-[#FFEBEE] text-[#C62828]" : "bg-[#F1F5F9] text-[#64748B]"
+          }`}
+          title="MikroTik must send syslog within 30 minutes"
+        >
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${routerConnected ? "bg-[#43A047]" : routerConnected === false ? "bg-[#E53935]" : "bg-[#94A3B8]"}`} />
+          {routerConnected ? "Router OK" : routerConnected === false ? "Router offline" : "Router…"}
+        </div>
         <div
           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium ${socketLive ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-[#FFF8E1] text-[#F57F17]"}`}
           title={socketError ?? (socketLive ? "Real-time via Socket.IO" : "Syslog listener not running")}
@@ -179,7 +188,9 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-[#1565C0]" size={24} /></div>
       ) : logs.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] px-4 py-10 text-center text-[13px] text-[#64748B]">
-          <p className="font-medium text-[#334155]">No logs in this period</p>
+          <p className="font-medium text-[#334155]">
+            {routerConnected === false ? "Router not connected — logs hidden" : "No logs in this period"}
+          </p>
           <p className="mt-1">
             Tenant: <strong>{schemaName || activeTenant?.schema_name || (tenantId != null ? `id ${tenantId}` : "—")}</strong>
             {totalInDb > 0 && (
@@ -195,9 +206,9 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
           {apiError && (
             <p className="mt-2 text-[12px] text-[#C62828]">API error: {apiError}</p>
           )}
-          {totalInDb > 0 && (
-            <p className="mt-2 text-[12px] text-[#1565C0]">
-              Database has logs — refresh করুন বা tenant select check করুন।
+          {routerConnected === false && (
+            <p className="mt-2 text-[12px] text-[#C62828]">
+              Router connect নেই — Device Manager-এ username + password দিয়ে add করুন, MikroTik syslog server set করুন।
             </p>
           )}
           {hint && <p className="mt-1 text-[12px] text-[#F57F17]">{hint}</p>}

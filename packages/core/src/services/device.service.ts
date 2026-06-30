@@ -3,6 +3,8 @@ import type { CreateDeviceInput, Device } from "@isp/core/types";
 import { getTenantById, getTenantBySchema } from "@isp/core/services/tenant.service";
 import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
 
+const ROUTER_STALE_MINUTES = 30;
+
 interface DeviceRow {
   id: number;
   name: string;
@@ -12,19 +14,29 @@ interface DeviceRow {
   syslog_user: string;
   syslog_port: number;
   listen_port: number;
+  api_user: string | null;
+  api_port: number | null;
+  has_api_password: boolean;
   status: string;
   last_seen_at: string | null;
   created_at: string;
 }
 
-function mapDevice(row: DeviceRow & { users_today?: number }): Device {
-  const status =
-    row.status === "active" || row.status === "receiving"
-      ? "receiving"
-      : row.status === "offline" || row.status === "disabled"
-        ? "offline"
-        : "online";
+function isRecentlySeen(lastSeenAt: string | null): boolean {
+  if (!lastSeenAt) return false;
+  const seen = new Date(lastSeenAt).getTime();
+  if (Number.isNaN(seen)) return false;
+  return Date.now() - seen <= ROUTER_STALE_MINUTES * 60_000;
+}
 
+function mapDeviceStatus(row: Pick<DeviceRow, "status" | "last_seen_at">): Device["status"] {
+  if (row.status === "disabled" || row.status === "offline") return "offline";
+  if (isRecentlySeen(row.last_seen_at)) return "receiving";
+  if (row.status === "active" || row.status === "receiving") return "offline";
+  return "online";
+}
+
+function mapDevice(row: DeviceRow & { users_today?: number }): Device {
   return {
     id: row.id,
     name: row.name,
@@ -34,7 +46,11 @@ function mapDevice(row: DeviceRow & { users_today?: number }): Device {
     user: row.syslog_user,
     port: row.syslog_port,
     listen_port: row.listen_port,
-    status,
+    api_user: row.api_user ?? undefined,
+    api_port: row.api_port ?? 8728,
+    has_api_password: row.has_api_password,
+    last_seen_at: row.last_seen_at,
+    status: mapDeviceStatus(row),
     users_today: row.users_today ?? 0,
   };
 }
@@ -42,12 +58,18 @@ function mapDevice(row: DeviceRow & { users_today?: number }): Device {
 const deviceSelectSql = `
   SELECT d.id, d.name, host(d.device_ip) AS device_ip, d.config_type,
          host(d.nat_ip) AS nat_ip, d.syslog_user, d.syslog_port, d.listen_port,
+         d.api_user, d.api_port,
+         (d.api_password IS NOT NULL AND d.api_password <> '') AS has_api_password,
          d.status, d.last_seen_at, d.created_at,
          (
            SELECT COUNT(DISTINCT s.pppoe_user)::int
-           FROM "%SCHEMA%".syslogs s
-           WHERE s.received_at >= CURRENT_DATE
-             AND host(s.nat_ip) = host(d.nat_ip)
+           FROM "%SCHEMA%".session_logs s
+           WHERE s.log_time >= CURRENT_DATE
+             AND s.router_id IN (
+               SELECT r.id FROM "%SCHEMA%".routers r
+               WHERE host(r.router_ip) = host(d.device_ip)
+                  OR (d.nat_ip IS NOT NULL AND host(r.router_ip) = host(d.nat_ip))
+             )
          ) AS users_today
   FROM "%SCHEMA%".devices d
 `;
@@ -103,6 +125,14 @@ export async function createTenantDevice(
     throw new Error("Device name and IP are required");
   }
 
+  if (!input.api_password?.trim()) {
+    throw new Error("Router password is required — enter MikroTik API or Winbox password");
+  }
+
+  if (!input.api_user?.trim()) {
+    throw new Error("Router username is required (e.g. admin)");
+  }
+
   await ensureTenantDeviceSchema(schema);
 
   const row = await db.getOne<DeviceRow>(
@@ -112,6 +142,8 @@ export async function createTenantDevice(
      VALUES ($1, $2::inet, $3, $4::inet, $5, $6, $7, $8, $9, $10, 'active')
      RETURNING id, name, host(device_ip) AS device_ip, config_type,
                host(nat_ip) AS nat_ip, syslog_user, syslog_port, listen_port,
+               api_user, api_port,
+               (api_password IS NOT NULL AND api_password <> '') AS has_api_password,
                status, last_seen_at, created_at`,
     [
       input.name.trim(),
@@ -170,6 +202,8 @@ export async function updateTenantDevice(
      WHERE id = $1
      RETURNING id, name, host(device_ip) AS device_ip, config_type,
                host(nat_ip) AS nat_ip, syslog_user, syslog_port, listen_port,
+               api_user, api_port,
+               (api_password IS NOT NULL AND api_password <> '') AS has_api_password,
                status, last_seen_at, created_at`,
     [
       deviceId,
@@ -269,4 +303,30 @@ export async function resolveDeviceRouterId(
     [deviceId]
   );
   return row?.router_id ?? null;
+}
+
+/** Router IDs that sent syslog within the last 30 minutes. */
+export async function listConnectedRouterIds(schemaName: string): Promise<number[]> {
+  const schema = assertValidTenantSchema(schemaName);
+  const rows = await db.getMany<{ id: number }>(
+    `SELECT DISTINCT r.id
+     FROM "${schema}".routers r
+     LEFT JOIN "${schema}".devices d
+       ON host(d.device_ip) = host(r.router_ip)
+       OR (d.nat_ip IS NOT NULL AND host(r.router_ip) = host(d.nat_ip))
+     WHERE r.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
+        OR (d.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
+            AND COALESCE(d.status, 'active') NOT IN ('disabled', 'offline'))`
+  );
+  return rows.map((r) => r.id);
+}
+
+export async function isAnyRouterConnected(schemaName: string): Promise<boolean> {
+  const ids = await listConnectedRouterIds(schemaName);
+  return ids.length > 0;
+}
+
+export async function listConnectedDevices(schemaName: string): Promise<Device[]> {
+  const devices = await listTenantDevices(schemaName);
+  return devices.filter((d) => d.status === "receiving");
 }

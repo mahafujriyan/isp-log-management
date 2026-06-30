@@ -91,7 +91,7 @@ export function DashboardApp() {
       })
       .catch(() => {});
 
-    fetch(`/api/logs?tenant_id=${tenantId}&limit=200`)
+    fetch(`/api/logs?tenant_id=${tenantId}&limit=200&require_connected=true`)
       .then((r) => r.json())
       .then((data) => {
         const logs: LogEntry[] = data.logs ?? [];

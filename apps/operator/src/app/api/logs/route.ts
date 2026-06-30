@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, canIngestLogs, parsePositiveInt, requirePermission, resolveTenantScope } from "@isp/core/utils/api.utils";
 import { ingestLogs, resolveLogsQuery, getTenantLogTableCounts, resolveDefaultTenant } from "@isp/core/services/syslog.service";
-import { resolveDeviceRouterId } from "@isp/core/services/device.service";
+import { resolveDeviceRouterId, isAnyRouterConnected } from "@isp/core/services/device.service";
 import { getTenantById } from "@isp/core/services/tenant.service";
 import type { IngestLogsInput } from "@isp/core/types";
 
@@ -18,6 +18,7 @@ export async function GET(request: Request) {
   const deviceId = deviceIdParam ? Number(deviceIdParam) : undefined;
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
+  const requireConnected = searchParams.get("require_connected") !== "false";
   const schema = searchParams.get("schema") ?? undefined;
   const tenantIdParam = searchParams.get("tenant_id") ?? searchParams.get("tenantId");
   const requested = tenantIdParam ? Number(tenantIdParam) : undefined;
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
       if (resolved) routerId = resolved;
     }
 
-    const { logs, source, schema_name } = await resolveLogsQuery({
+    const { logs, source, schema_name, router_connected } = await resolveLogsQuery({
       tenant_id: tenantId,
       schema: lookupSchema,
       limit,
@@ -53,7 +54,11 @@ export async function GET(request: Request) {
       mac,
       nat_ip: routerId ? undefined : natIp,
       router_id: routerId,
+      require_connected: requireConnected,
     });
+
+    const routerConnected =
+      router_connected ?? (schema_name ? await isAnyRouterConnected(schema_name) : false);
 
     const tableCounts = schema_name ? await getTenantLogTableCounts(schema_name) : null;
     const totalInDb = tableCounts?.total ?? 0;
@@ -72,12 +77,15 @@ export async function GET(request: Request) {
       source,
       schema_name,
       tenant_id: tenantId,
+      router_connected: routerConnected,
       hint:
-        logs.length === 0 && totalInDb > 0
-          ? "Logs exist in DB — device NAT filter removed mismatch; select All devices or refresh"
-          : logs.length === 0
-            ? "No rows in session_logs or syslogs — verify MikroTik ingest and db:migrate"
-            : undefined,
+        !routerConnected && requireConnected
+          ? "Router offline — no logs shown until MikroTik sends syslog (check device password & remote logging)"
+          : logs.length === 0 && totalInDb > 0
+            ? "Logs in database but filtered — try All devices / All time"
+            : logs.length === 0
+              ? "No rows yet — add device with password and point MikroTik syslog to this server :514"
+              : undefined,
       active_filters: {
         device_id: deviceId && !Number.isNaN(deviceId) ? deviceId : null,
         router_id: routerId ?? null,

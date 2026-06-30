@@ -7,6 +7,7 @@ import {
   syslogToLogEntry,
 } from "@isp/core/services/tenant.service";
 import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
+import { enrichLogEntryForDisplay } from "@isp/core/utils/log-display.utils";
 
 interface SyslogQueryOptions {
   limit?: number;
@@ -16,6 +17,8 @@ interface SyslogQueryOptions {
   mac?: string;
   nat_ip?: string;
   router_id?: number;
+  router_ids?: number[];
+  require_connected?: boolean;
 }
 
 function buildSessionLogsSelect(schema: string, options: SyslogQueryOptions): { sql: string; params: unknown[] } {
@@ -50,6 +53,10 @@ function buildSessionLogsSelect(schema: string, options: SyslogQueryOptions): { 
   if (options.router_id) {
     params.push(options.router_id);
     sql += ` AND router_id = $${params.length}`;
+  }
+  if (options.router_ids && options.router_ids.length > 0) {
+    params.push(options.router_ids);
+    sql += ` AND router_id = ANY($${params.length}::int[])`;
   }
   if (options.mac) {
     params.push(`%${options.mac.replace(/[:-]/g, "")}%`);
@@ -108,6 +115,7 @@ export async function getTenantSyslogs(
 ): Promise<LogEntry[]> {
   const schemaSafe = assertValidTenantSchema(schemaName);
   const limit = options.limit ?? 100;
+  const queryOptions = { ...options };
 
   try {
     const sessionTable = await db.getOne<{ exists: boolean }>(
@@ -132,20 +140,23 @@ export async function getTenantSyslogs(
     };
 
     if (sessionTable?.exists) {
-      const { sql, params } = buildSessionLogsSelect(schemaName, { ...options, limit });
+      const { sql, params } = buildSessionLogsSelect(schemaName, { ...queryOptions, limit });
       addRows(await db.getMany<SyslogEntry>(sql, params));
     }
 
-    const { sql, params } = buildSyslogSelect(schemaName, {
-      ...options,
-      nat_ip: options.router_id ? undefined : options.nat_ip,
+    const syslogOpts = {
+      ...queryOptions,
+      nat_ip: queryOptions.router_id || queryOptions.router_ids?.length ? undefined : queryOptions.nat_ip,
       router_id: undefined,
-    });
+      router_ids: undefined,
+    };
+    const { sql, params } = buildSyslogSelect(schemaName, { ...syslogOpts, limit });
     addRows(await db.getMany<SyslogEntry>(sql, params));
 
     return merged
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-      .slice(0, limit);
+      .slice(0, limit)
+      .map(enrichLogEntryForDisplay);
   } catch (err) {
     console.error(`[logs] query failed for ${schemaName}:`, err instanceof Error ? err.message : err);
     return [];
@@ -196,19 +207,21 @@ export async function getLogsForTenantId(
 
 async function queryTenantLogs(schemaName: string, options: SyslogQueryOptions): Promise<LogEntry[]> {
   let logs = await getTenantSyslogs(schemaName, options);
+  if (options.require_connected) return logs;
+
   const stripDate = { ...options, from: undefined, to: undefined };
-  const stripDevice = { ...options, nat_ip: undefined, router_id: undefined };
+  const stripDevice = { ...options, nat_ip: undefined, router_id: undefined, router_ids: undefined };
 
   if (logs.length === 0 && (options.from || options.to)) {
     logs = await getTenantSyslogs(schemaName, stripDate);
   }
-  if (logs.length === 0 && (options.nat_ip || options.router_id)) {
+  if (logs.length === 0 && (options.nat_ip || options.router_id || options.router_ids?.length)) {
     logs = await getTenantSyslogs(schemaName, stripDevice);
   }
   if (
     logs.length === 0 &&
     (options.from || options.to) &&
-    (options.nat_ip || options.router_id)
+    (options.nat_ip || options.router_id || options.router_ids?.length)
   ) {
     logs = await getTenantSyslogs(schemaName, {
       ...options,
@@ -216,6 +229,7 @@ async function queryTenantLogs(schemaName: string, options: SyslogQueryOptions):
       to: undefined,
       nat_ip: undefined,
       router_id: undefined,
+      router_ids: undefined,
     });
   }
   return logs;
@@ -254,7 +268,9 @@ export async function resolveLogsQuery(params: {
   mac?: string;
   nat_ip?: string;
   router_id?: number;
-}): Promise<{ logs: LogEntry[]; source: "tenant" | "all"; schema_name?: string }> {
+  router_ids?: number[];
+  require_connected?: boolean;
+}): Promise<{ logs: LogEntry[]; source: "tenant" | "all"; schema_name?: string; router_connected?: boolean }> {
   const options: SyslogQueryOptions = {
     limit: params.limit,
     from: params.from,
@@ -263,7 +279,21 @@ export async function resolveLogsQuery(params: {
     mac: params.mac,
     nat_ip: params.nat_ip,
     router_id: params.router_id,
+    router_ids: params.router_ids,
+    require_connected: params.require_connected,
   };
+
+  if (params.require_connected) {
+    const defaultTenant = await resolveDefaultTenant();
+    const schema = params.schema ?? defaultTenant?.schema_name;
+    if (schema) {
+      const { isAnyRouterConnected } = await import("@isp/core/services/device.service");
+      const connected = await isAnyRouterConnected(schema);
+      if (!connected) {
+        return { logs: [], source: "tenant", schema_name: schema, router_connected: false };
+      }
+    }
+  }
 
   const schemasToTry: string[] = [];
 
@@ -282,7 +312,7 @@ export async function resolveLogsQuery(params: {
   for (const schemaName of schemasToTry) {
     const logs = await queryTenantLogs(schemaName, options);
     if (logs.length > 0) {
-      return { logs, source: "tenant", schema_name: schemaName };
+      return { logs, source: "tenant", schema_name: schemaName, router_connected: true };
     }
     const total = await countTenantSyslogs(schemaName);
     if (total > 0) {
@@ -292,7 +322,7 @@ export async function resolveLogsQuery(params: {
         to: undefined,
       });
       if (unfiltered.length > 0) {
-        return { logs: unfiltered, source: "tenant", schema_name: schemaName };
+        return { logs: unfiltered, source: "tenant", schema_name: schemaName, router_connected: true };
       }
       return { logs: [], source: "tenant", schema_name: schemaName };
     }
@@ -307,6 +337,7 @@ export async function resolveLogsQuery(params: {
     logs: [],
     source: "tenant",
     schema_name: defaultTenant?.schema_name ?? schemasToTry[0],
+    router_connected: params.require_connected ? false : undefined,
   };
 }
 

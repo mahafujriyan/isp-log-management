@@ -65,6 +65,7 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
   const plural = variant === "servers" ? "servers" : "devices";
 
   const loadDevices = useCallback(async () => {
+    if (tenantId == null) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/devices?tenant_id=${tenantId}`);
@@ -136,15 +137,23 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
       user: device.user,
       port: device.port,
       listen_port: device.listen_port,
-      api_user: device.user || "admin",
+      api_user: device.api_user || "admin",
       api_password: "",
-      api_port: 8728,
+      api_port: device.api_port ?? 8728,
     });
     setShowForm(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!editing && !form.api_password.trim()) {
+      setError("Router password is required to add a device");
+      return;
+    }
+    if (!form.api_user.trim()) {
+      setError("Router username is required (e.g. admin)");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -290,8 +299,13 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
 
             {variant === "servers" && (
               <p className="mb-3 rounded-lg bg-[#EFF6FF] px-3 py-2 text-[11px] leading-relaxed text-[#1E40AF]">
-                Password is <strong>optional</strong> — leave empty to add syslog-only device.
-                MikroTik remote syslog: <strong>{logServerIp || "160.187.175.30"}:514</strong> (no password needed).
+                MikroTik remote syslog: <strong>{logServerIp || "160.187.175.30"}:514</strong>
+              </p>
+            )}
+            {variant === "devices" && (
+              <p className="mb-3 rounded-lg bg-[#EFF6FF] px-3 py-2 text-[11px] leading-relaxed text-[#1E40AF]">
+                <strong>NAT</strong> = firewall/NAT logs · <strong>ACCESS</strong> = PPPoE/access router.
+                Username + password required. Syslog target: <strong>160.187.175.30:514</strong>
               </p>
             )}
 
@@ -308,9 +322,8 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
                 </label>
               )}
               {[
-                { key: "name", label: variant === "servers" ? "Server name" : "Name", col: 2 },
-                { key: "ip", label: "Device IP" },
-                { key: "nat_ip", label: "NAT IP" },
+                { key: "name", label: variant === "servers" ? "Server name" : "Device name", col: 2 },
+                { key: "ip", label: "Router IP", col: 1 },
               ].map((f) => (
                 <label key={f.key} className={f.col === 2 ? "col-span-2" : ""}>
                   <span className="mb-1 block text-[#64748B]">{f.label}</span>
@@ -318,25 +331,87 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
                     type="text"
                     value={String(form[f.key as keyof typeof form])}
                     onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                    required={f.key === "name" || f.key === "ip"}
+                    required
                     placeholder={f.key === "ip" ? "160.187.175.26" : undefined}
                     className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
                   />
                 </label>
               ))}
+              {form.config === "NAT" && (
+                <label>
+                  <span className="mb-1 block text-[#64748B]">NAT / Public IP</span>
+                  <input
+                    type="text"
+                    value={form.nat_ip}
+                    onChange={(e) => setForm((p) => ({ ...p, nat_ip: e.target.value }))}
+                    placeholder="Same as router IP if single WAN"
+                    className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                  />
+                </label>
+              )}
               <label>
-                <span className="mb-1 block text-[#64748B]">Configuration type</span>
+                <span className="mb-1 block text-[#64748B]">Router type</span>
                 <select
                   value={form.config}
                   onChange={(e) => setForm((p) => ({ ...p, config: e.target.value as "NAT" | "ACCESS" }))}
                   className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
                 >
-                  <option value="NAT">NAT</option>
-                  <option value="ACCESS">ACCESS</option>
+                  <option value="NAT">NAT router (firewall logs)</option>
+                  <option value="ACCESS">ACCESS router (PPPoE)</option>
                 </select>
               </label>
               <label>
-                <span className="mb-1 block text-[#64748B]">Listening port</span>
+                <span className="mb-1 block text-[#64748B]">Router username</span>
+                <input
+                  value={form.api_user}
+                  onChange={(e) => setForm((p) => ({ ...p, api_user: e.target.value }))}
+                  required
+                  placeholder="admin"
+                  className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                />
+              </label>
+              <label>
+                <span className="mb-1 block text-[#64748B]">
+                  Router password {editing ? "(leave blank to keep)" : "(required)"}
+                </span>
+                <input
+                  type="password"
+                  value={form.api_password}
+                  onChange={(e) => setForm((p) => ({ ...p, api_password: e.target.value }))}
+                  required={!editing}
+                  placeholder={editing && editing.has_api_password ? "•••••••• saved" : "MikroTik / Winbox password"}
+                  className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                />
+              </label>
+              <label>
+                <span className="mb-1 block text-[#64748B]">API port</span>
+                <input
+                  type="number"
+                  value={form.api_port}
+                  onChange={(e) => setForm((p) => ({ ...p, api_port: Number(e.target.value) }))}
+                  className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                />
+              </label>
+              <label>
+                <span className="mb-1 block text-[#64748B]">Syslog user</span>
+                <input
+                  value={form.user}
+                  onChange={(e) => setForm((p) => ({ ...p, user: e.target.value }))}
+                  placeholder="log"
+                  className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                />
+              </label>
+              <label>
+                <span className="mb-1 block text-[#64748B]">Syslog port</span>
+                <input
+                  type="number"
+                  value={form.port}
+                  onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))}
+                  className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
+                />
+              </label>
+              <label>
+                <span className="mb-1 block text-[#64748B]">Listen port</span>
                 <input
                   type="number"
                   value={form.listen_port}
@@ -344,58 +419,6 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
                   className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
                 />
               </label>
-              {variant === "servers" ? (
-                <>
-                  <label>
-                    <span className="mb-1 block text-[#64748B]">User name</span>
-                    <input
-                      value={form.api_user}
-                      onChange={(e) => setForm((p) => ({ ...p, api_user: e.target.value }))}
-                      placeholder="admin"
-                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-1 block text-[#64748B]">Password (optional)</span>
-                    <input
-                      type="password"
-                      value={form.api_password}
-                      onChange={(e) => setForm((p) => ({ ...p, api_password: e.target.value }))}
-                      placeholder="Leave empty or use e.g. admin123"
-                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-1 block text-[#64748B]">API port</span>
-                    <input
-                      type="number"
-                      value={form.api_port}
-                      onChange={(e) => setForm((p) => ({ ...p, api_port: Number(e.target.value) }))}
-                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
-                    />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <label>
-                    <span className="mb-1 block text-[#64748B]">Syslog user</span>
-                    <input
-                      value={form.user}
-                      onChange={(e) => setForm((p) => ({ ...p, user: e.target.value }))}
-                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-1 block text-[#64748B]">Port</span>
-                    <input
-                      type="number"
-                      value={form.port}
-                      onChange={(e) => setForm((p) => ({ ...p, port: Number(e.target.value) }))}
-                      className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
-                    />
-                  </label>
-                </>
-              )}
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" onClick={() => setShowForm(false)} className="rounded-md border px-3 py-1.5 text-[12px]">Cancel</button>
