@@ -74,55 +74,64 @@ export function DashboardApp() {
   useEffect(() => {
     if (tenantLoading || tenantId == null) return;
 
-    fetch(`/api/dashboard/metrics?tenant_id=${tenantId}`)
-      .then((r) => r.json())
-      .then((m) => {
-        setMetrics((prev) => ({
-          ...prev,
-          totalLogs: m.totalLogs ?? prev.totalLogs,
-          activeUsers: m.activeUsers ?? prev.activeUsers,
-          devices: m.devices ?? prev.devices,
-          diskUsedGb: m.diskUsedGb ?? prev.diskUsedGb,
-          diskTotalGb: m.diskTotalGb ?? prev.diskTotalGb,
-          storageUsedMb: m.storageUsedMb ?? prev.storageUsedMb,
-          storageLimitMb: m.storageLimitMb ?? prev.storageLimitMb,
-          storageProvider: m.storageProvider ?? prev.storageProvider,
-        }));
-      })
-      .catch(() => {});
+    const loadDashboard = () => {
+      fetch(`/api/dashboard/metrics?tenant_id=${tenantId}`)
+        .then((r) => r.json())
+        .then((m) => {
+          setMetrics((prev) => ({
+            ...prev,
+            totalLogs: m.totalLogs ?? prev.totalLogs,
+            activeUsers: m.activeUsers ?? prev.activeUsers,
+            devices: m.devices ?? prev.devices,
+            diskUsedGb: m.diskUsedGb ?? prev.diskUsedGb,
+            diskTotalGb: m.diskTotalGb ?? prev.diskTotalGb,
+            storageUsedMb: m.storageUsedMb ?? prev.storageUsedMb,
+            storageLimitMb: m.storageLimitMb ?? prev.storageLimitMb,
+            storageProvider: m.storageProvider ?? prev.storageProvider,
+          }));
+        })
+        .catch(() => {});
 
-    fetch(`/api/logs?tenant_id=${tenantId}&limit=200&require_connected=false`)
-      .then((r) => r.json())
-      .then((data) => {
-        const logs: LogEntry[] = data.logs ?? [];
-        if (logs.length === 0) return;
+      fetch(`/api/logs?tenant_id=${tenantId}&limit=200&require_connected=false`)
+        .then((r) => r.json())
+        .then((data) => {
+          const logs: LogEntry[] = data.logs ?? [];
+          if (logs.length === 0) return;
 
-        const uMap: Record<string, number> = {};
-        const iMap: Record<string, number> = {};
-        const hourCounts = Array(24).fill(0);
-        const portMap = { ...EMPTY_PORT_DATA };
+          const uMap: Record<string, number> = {};
+          const iMap: Record<string, number> = {};
+          const hourCounts = Array(24).fill(0);
+          const portMap = { ...EMPTY_PORT_DATA };
 
-        logs.forEach((l) => {
-          uMap[l.pppoe_user] = (uMap[l.pppoe_user] ?? 0) + 1;
-          iMap[l.visited_ip] = (iMap[l.visited_ip] ?? 0) + 1;
-          const h = new Date(l.time).getHours();
-          if (!Number.isNaN(h)) hourCounts[h] += 1;
-          const port = l.port ?? l.nat_port ?? 0;
-          if (port === 443) portMap.https += 1;
-          else if (port === 80) portMap.http += 1;
-          else if (port === 8080) portMap.p8080 += 1;
-          else if (port === 9998) portMap.p9998 += 1;
-          else if (port === 53) portMap.dns += 1;
-          else portMap.other += 1;
-        });
+          logs.forEach((l) => {
+            const user = l.pppoe_user?.trim();
+            if (user && user !== "Unknown" && !/^\d{1,3}(\.\d{1,3}){3}$/.test(user)) {
+              uMap[user] = (uMap[user] ?? 0) + 1;
+            }
+            iMap[l.visited_ip] = (iMap[l.visited_ip] ?? 0) + 1;
+            const h = new Date(l.time).getHours();
+            if (!Number.isNaN(h)) hourCounts[h] += 1;
+            const port = l.port ?? l.nat_port ?? 0;
+            if (port === 443) portMap.https += 1;
+            else if (port === 80) portMap.http += 1;
+            else if (port === 8080) portMap.p8080 += 1;
+            else if (port === 9998) portMap.p9998 += 1;
+            else if (port === 53) portMap.dns += 1;
+            else portMap.other += 1;
+          });
 
-        setTopUsers(Object.entries(uMap).sort((a, b) => b[1] - a[1]).slice(0, 5));
-        setTopIps(Object.entries(iMap).sort((a, b) => b[1] - a[1]).slice(0, 5));
-        if (hourCounts.some((v) => v > 0)) setHourlyData(hourCounts);
-        setPortData(portMap);
-        setStreamCount(logs.length);
-      })
-      .catch(() => {});
+          setTopUsers(Object.entries(uMap).sort((a, b) => b[1] - a[1]).slice(0, 5));
+          setTopIps(Object.entries(iMap).sort((a, b) => b[1] - a[1]).slice(0, 5));
+          if (hourCounts.some((v) => v > 0)) setHourlyData(hourCounts);
+          setPortData(portMap);
+          setStreamCount(logs.length);
+        })
+        .catch(() => {});
+    };
+
+    loadDashboard();
+    const interval = setInterval(loadDashboard, 15_000);
+    return () => clearInterval(interval);
   }, [tenantId, tenantLoading]);
 
   return (

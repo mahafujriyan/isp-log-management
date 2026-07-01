@@ -10,7 +10,7 @@ import type {
 import { aggregateMetrics, logEntryToMikroTikLog } from "@isp/core/utils/mikrotik-parser.utils";
 import type { LogEntry } from "@isp/core/types";
 import { getTenantById } from "@isp/core/services/tenant.service";
-import { getTenantSyslogs } from "@isp/core/services/syslog.service";
+import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
 
 const RANGE_INTERVAL: Record<MetricTimeRange, string> = {
   "1h": "1 hour",
@@ -28,6 +28,106 @@ const METRIC_VALUE_KEYS: Record<string, keyof ParsedMetrics> = {
 function getInterval(range: string): MetricTimeRange {
   if (range === "1h" || range === "24h" || range === "7d" || range === "30d") return range;
   return "24h";
+}
+
+async function sessionLogsTableExists(schemaName: string): Promise<boolean> {
+  const schema = assertValidTenantSchema(schemaName);
+  const row = await db.getOne<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM information_schema.tables
+       WHERE table_schema = $1 AND table_name = 'session_logs'
+     ) AS exists`,
+    [schema]
+  );
+  return row?.exists ?? false;
+}
+
+/** Fast indexed read — avoids merging syslogs + full table scans. */
+async function fetchMetricLogs(schemaName: string, interval: string): Promise<MikroTikLog[]> {
+  const schema = assertValidTenantSchema(schemaName);
+  if (!(await sessionLogsTableExists(schema))) return [];
+
+  const rows = await db.getMany<{
+    log_time: string;
+    pppoe_user: string | null;
+    user_ip: string | null;
+    nat_ip: string | null;
+    visited_ip: string | null;
+    protocol: string | null;
+    user_port: number | null;
+    visited_port: number | null;
+    raw_message: string | null;
+  }>(
+    `SELECT log_time::text, pppoe_user, host(user_ip) AS user_ip, host(nat_ip) AS nat_ip,
+            host(visited_ip) AS visited_ip, protocol, user_port, visited_port, raw_message
+     FROM "${schema}".session_logs
+     WHERE log_time > NOW() - $1::interval
+     ORDER BY log_time DESC
+     LIMIT 2000`,
+    [interval]
+  );
+
+  return rows.map((row) =>
+    logEntryToMikroTikLog({
+      time: row.log_time,
+      pppoe_user: row.pppoe_user ?? "",
+      user_ip: row.user_ip ?? "",
+      nat_ip: row.nat_ip ?? "",
+      visited_ip: row.visited_ip ?? "",
+      port: row.visited_port ?? 0,
+      user_port: row.user_port ?? undefined,
+      nat_port: undefined,
+      protocol: row.protocol ?? undefined,
+      raw_message: row.raw_message ?? undefined,
+      mac: "",
+    })
+  );
+}
+
+async function fetchProtocolDistribution(
+  schemaName: string,
+  interval: string
+): Promise<MetricChartPoint[]> {
+  const schema = assertValidTenantSchema(schemaName);
+  if (!(await sessionLogsTableExists(schema))) return [];
+
+  const rows = await db.getMany<{ name: string; value: string }>(
+    `SELECT COALESCE(NULLIF(UPPER(protocol), ''), 'UNKNOWN') AS name, COUNT(*)::text AS value
+     FROM "${schema}".session_logs
+     WHERE log_time > NOW() - $1::interval
+     GROUP BY 1
+     ORDER BY COUNT(*) DESC
+     LIMIT 8`,
+    [interval]
+  );
+  return rows.map((r) => ({ name: r.name, value: Number(r.value) }));
+}
+
+async function fetchTopVisitedIps(
+  schemaName: string,
+  interval: string
+): Promise<MetricChartPoint[]> {
+  const schema = assertValidTenantSchema(schemaName);
+  if (!(await sessionLogsTableExists(schema))) return [];
+
+  const rows = await db.getMany<{ name: string; value: string }>(
+    `SELECT host(visited_ip) AS name, COUNT(*)::text AS value
+     FROM "${schema}".session_logs
+     WHERE log_time > NOW() - $1::interval AND visited_ip IS NOT NULL
+     GROUP BY visited_ip
+     ORDER BY COUNT(*) DESC
+     LIMIT 10`,
+    [interval]
+  );
+  return rows.map((r) => ({ name: r.name, value: Number(r.value) }));
+}
+
+async function fetchActivePppoeUsers(schemaName: string): Promise<number> {
+  const schema = assertValidTenantSchema(schemaName);
+  const row = await db.getOne<{ count: string }>(
+    `SELECT COUNT(*)::text AS count FROM "${schema}".pppoe_users WHERE status = 'active'`
+  ).catch(() => null);
+  return Number(row?.count ?? 0);
 }
 
 export async function ensureTenantMetricSettings(tenantId: number): Promise<void> {
@@ -61,12 +161,17 @@ export async function getVisibleMetricsWithData(
   );
 
   const tenant = await getTenantById(tenantId);
-  const syslogLogs = tenant
-    ? await getTenantSyslogs(tenant.schema_name, { limit: 500 })
-    : [];
+  if (!tenant) return [];
 
-  const mikrotikLogs = syslogLogs.map((l) => logEntryToMikroTikLog(l));
-  const aggregated = aggregateMetrics(mikrotikLogs);
+  const [metricLogs, protocolDist, topIps, activePppoe] = await Promise.all([
+    fetchMetricLogs(tenant.schema_name, interval),
+    fetchProtocolDistribution(tenant.schema_name, interval),
+    fetchTopVisitedIps(tenant.schema_name, interval),
+    fetchActivePppoeUsers(tenant.schema_name),
+  ]);
+
+  const aggregated = aggregateMetrics(metricLogs);
+  if (activePppoe > 0) aggregated.activeUsers = activePppoe;
 
   return Promise.all(
     rows.map(async (row) => {
@@ -76,7 +181,9 @@ export async function getVisibleMetricsWithData(
         row.chart_type,
         interval,
         aggregated,
-        mikrotikLogs
+        metricLogs,
+        protocolDist,
+        topIps
       );
       return {
         id: row.id,
@@ -103,9 +210,12 @@ async function resolveChartData(
   chartType: string,
   interval: string,
   aggregated: ParsedMetrics,
-  logs: MikroTikLog[]
+  logs: MikroTikLog[],
+  protocolDist: MetricChartPoint[],
+  topIps: MetricChartPoint[]
 ): Promise<MetricChartPoint[]> {
   if (metricName === "protocol_dist") {
+    if (protocolDist.length > 0) return protocolDist;
     return Object.entries(aggregated.protocolDistribution).map(([name, value]) => ({
       name,
       value,
@@ -113,6 +223,7 @@ async function resolveChartData(
   }
 
   if (metricName === "top_ips") {
+    if (topIps.length > 0) return topIps;
     return aggregated.topIps.map(({ ip, bandwidth }) => ({
       name: ip,
       value: bandwidth,

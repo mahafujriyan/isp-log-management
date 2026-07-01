@@ -11,24 +11,23 @@ async function metricsForSchema(schema: string): Promise<{
 }> {
   const schemaSafe = assertValidTenantSchema(schema);
 
-  const logsRow = await db.getOne<{ count: string; users: string }>(
-    `SELECT COUNT(*)::text AS count,
-            COUNT(DISTINCT pppoe_user)::text AS users
-     FROM (
-       SELECT pppoe_user FROM "${schemaSafe}".session_logs
-       WHERE log_time >= CURRENT_DATE
-       UNION ALL
-       SELECT pppoe_user FROM "${schemaSafe}".syslogs
-       WHERE received_at >= CURRENT_DATE
-     ) recent`
+  const logsRow = await db.getOne<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+     FROM "${schemaSafe}".session_logs
+     WHERE log_time >= CURRENT_DATE`
   ).catch(async () =>
-    db.getOne<{ count: string; users: string }>(
-      `SELECT COUNT(*)::text AS count,
-              COUNT(DISTINCT pppoe_user)::text AS users
+    db.getOne<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
        FROM "${schemaSafe}".syslogs
        WHERE received_at >= CURRENT_DATE`
     )
   );
+
+  const usersRow = await db.getOne<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+     FROM "${schemaSafe}".pppoe_users
+     WHERE status = 'active'`
+  ).catch(() => null);
 
   const devicesRow = await db.getOne<{ count: string }>(
     `SELECT COUNT(*)::text AS count FROM "${schemaSafe}".devices WHERE status = 'active'`
@@ -36,7 +35,7 @@ async function metricsForSchema(schema: string): Promise<{
 
   return {
     logsToday: Number(logsRow?.count ?? 0),
-    activeUsers: Number(logsRow?.users ?? 0),
+    activeUsers: Number(usersRow?.count ?? 0),
     devices: Number(devicesRow?.count ?? 0),
   };
 }

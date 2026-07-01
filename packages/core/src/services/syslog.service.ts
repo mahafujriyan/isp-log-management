@@ -186,6 +186,13 @@ export async function getTenantSyslogs(
     if (sessionTable?.exists) {
       const { sql, params } = buildSessionLogsSelect(schemaName, { ...queryOptions, limit });
       addRows(await db.getMany<SyslogEntry>(sql, params));
+      if (merged.length >= limit) {
+        const baseLogs = merged
+          .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+          .slice(0, limit)
+          .map(enrichLogEntryForDisplay);
+        return await enrichLogsFromPppoeTable(schemaName, baseLogs);
+      }
     }
 
     const syslogOpts = {
@@ -359,8 +366,7 @@ export async function resolveLogsQuery(params: {
     if (logs.length > 0) {
       return { logs, source: "tenant", schema_name: schemaName, router_connected: true };
     }
-    const total = await countTenantSyslogs(schemaName);
-    if (total > 0) {
+    if (await tenantHasAnyLogs(schemaName)) {
       const unfiltered = await getTenantSyslogs(schemaName, {
         ...options,
         from: undefined,
@@ -386,13 +392,28 @@ export async function resolveLogsQuery(params: {
   };
 }
 
+async function tenantHasAnyLogs(schemaName: string): Promise<boolean> {
+  try {
+    const schema = assertValidTenantSchema(schemaName);
+    const row = await db.getOne<{ exists: boolean }>(
+      `SELECT (
+         EXISTS (SELECT 1 FROM "${schema}".session_logs LIMIT 1)
+         OR EXISTS (SELECT 1 FROM "${schema}".syslogs LIMIT 1)
+       ) AS exists`
+    );
+    return row?.exists ?? false;
+  } catch {
+    return false;
+  }
+}
+
 export async function countTenantSyslogs(schemaName: string): Promise<number> {
   try {
     const schema = assertValidTenantSchema(schemaName);
     const row = await db.getOne<{ count: string }>(
       `SELECT (
-         COALESCE((SELECT COUNT(*) FROM "${schema}".session_logs), 0) +
-         COALESCE((SELECT COUNT(*) FROM "${schema}".syslogs), 0)
+         COALESCE((SELECT MAX(id) FROM "${schema}".session_logs), 0) +
+         COALESCE((SELECT MAX(id) FROM "${schema}".syslogs), 0)
        )::text AS count`
     );
     return Number(row?.count ?? 0);
@@ -410,8 +431,8 @@ export async function getTenantLogTableCounts(schemaName: string): Promise<{
     const schema = assertValidTenantSchema(schemaName);
     const row = await db.getOne<{ session: string; syslog: string }>(
       `SELECT
-         (SELECT COUNT(*)::text FROM "${schema}".session_logs) AS session,
-         (SELECT COUNT(*)::text FROM "${schema}".syslogs) AS syslog`
+         COALESCE((SELECT MAX(id) FROM "${schema}".session_logs), 0)::text AS session,
+         COALESCE((SELECT MAX(id) FROM "${schema}".syslogs), 0)::text AS syslog`
     );
     const session = Number(row?.session ?? 0);
     const syslog = Number(row?.syslog ?? 0);

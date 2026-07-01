@@ -31,13 +31,13 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   const connectedDevices = devices.filter((d) => d.status === "receiving");
 
   const prependLog = useCallback((entry: LogEntry) => {
-    if (routerConnected === false) return;
+    setRouterConnected(true);
     setLogs((prev) => {
       const next = [entry, ...prev].slice(0, 200);
       onStreamCount?.(next.length);
       return next;
     });
-  }, [onStreamCount, routerConnected]);
+  }, [onStreamCount]);
 
   const { connected: socketLive, stats: socketStats, error: socketError } = useLogSocket(tenantId ?? undefined, prependLog);
 
@@ -108,7 +108,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
     if (tenantLoading || tenantId == null) return;
     setLoading(true);
     loadLogs();
-    const ms = socketLive ? 15000 : 4000;
+    const ms = socketLive ? 8000 : 2000;
     const interval = setInterval(loadLogs, ms);
     return () => clearInterval(interval);
   }, [loadLogs, socketLive, tenantLoading, tenantId]);
@@ -166,7 +166,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
           title={socketError ?? (socketLive ? "Real-time via Socket.IO" : "Syslog listener not running")}
         >
           <span className={`inline-block h-1.5 w-1.5 rounded-full pulse-dot ${socketLive ? "bg-[#43A047]" : "bg-[#FFA000]"}`} />
-          {socketLive ? "Live" : loading ? "Loading..." : "Polling (4s)"}
+          {socketLive ? "Live" : loading ? "Loading..." : "Polling (2s)"}
         </div>
         <span className="ml-auto text-[12px] text-[#64748B]">
           {logs.length} rows

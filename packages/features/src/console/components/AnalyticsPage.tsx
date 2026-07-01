@@ -20,7 +20,7 @@ const sizeClass = {
 };
 
 export function AnalyticsPage() {
-  const { tenantId, tenants, setTenantId, isDemo } = useTenantContext();
+  const { tenantId, tenants, setTenantId, isDemo, loading: tenantLoading } = useTenantContext();
   const [metrics, setMetrics] = useState<MetricWithData[]>([]);
   const [range, setRange] = useState<MetricTimeRange>("24h");
   const [loading, setLoading] = useState(true);
@@ -28,6 +28,7 @@ export function AnalyticsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const loadMetrics = useCallback(async () => {
+    if (tenantLoading || tenantId == null) return;
     setLoading(true);
     setError(null);
     try {
@@ -36,7 +37,7 @@ export function AnalyticsPage() {
       );
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to load metrics");
+        setError(data.error ?? data.detail ?? "Failed to load metrics");
         setMetrics([]);
         return;
       }
@@ -47,15 +48,15 @@ export function AnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, range, refreshKey]);
+  }, [tenantId, tenantLoading, range, refreshKey]);
 
   useEffect(() => {
     loadMetrics();
   }, [loadMetrics]);
 
-  const minRefresh = metrics.reduce(
-    (min, m) => Math.min(min, m.refresh_interval || 5),
-    5
+  const minRefresh = Math.max(
+    10,
+    metrics.reduce((min, m) => Math.min(min, m.refresh_interval || 5), 10)
   );
 
   useEffect(() => {
