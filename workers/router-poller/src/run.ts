@@ -3,7 +3,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { db } from "@isp/core/lib/database";
 import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
-import { upsertPppoeActiveSessions } from "@isp/core/services/pppoe-session.service";
+import { syncPppoeActiveSessions } from "@isp/core/services/pppoe-session.service";
+import { recordDeviceApiSync } from "@isp/core/services/device.service";
 import { fetchRouterPppActive } from "./routeros-api.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -79,6 +80,7 @@ async function listTargetsForSchema(schemaName: string): Promise<PollTarget[]> {
        COALESCE(d.api_port, 8728) AS api_port
      FROM "${schema}".devices d
      WHERE COALESCE(d.status, 'active') NOT IN ('disabled', 'offline')
+       AND UPPER(d.config_type) IN ('ACCESS', 'BRAS')
        AND d.api_password IS NOT NULL
        AND d.api_password <> ''
        AND d.api_user IS NOT NULL
@@ -92,6 +94,7 @@ async function pollOnce(): Promise<void> {
   let totalTargets = 0;
   let totalFetched = 0;
   let totalUpserted = 0;
+  let totalDisconnected = 0;
   try {
     const schemas = await listTargetSchemas();
     for (const schema of schemas) {
@@ -108,31 +111,36 @@ async function pollOnce(): Promise<void> {
           });
           totalFetched += sessions.length;
           const router = await resolveRouterInfo(schema, target.device_ip);
-          const { upserted } = await upsertPppoeActiveSessions(
+          const { upserted, disconnected } = await syncPppoeActiveSessions(
             schema,
+            router.router_id,
             sessions.map((s) => ({
               ...s,
               router_id: router.router_id,
               router_name: target.device_name || router.router_name,
             }))
           );
+          await recordDeviceApiSync(schema, target.device_ip, true);
           totalUpserted += upserted;
+          totalDisconnected += disconnected;
           console.log(
-            `[router-poller] ${schema}/${target.device_name}(${target.device_ip}:${target.api_port}) fetched=${sessions.length} upserted=${upserted}`
+            `[router-poller] ${schema}/${target.device_name}(${target.device_ip}:${target.api_port}) fetched=${sessions.length} upserted=${upserted} disconnected=${disconnected}`
           );
         } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          await recordDeviceApiSync(schema, target.device_ip, false, message).catch(() => {});
           console.error(
             `[router-poller] ${schema}/${target.device_name}(${target.device_ip}) failed:`,
-            error instanceof Error ? error.message : String(error)
+            message
           );
         }
       }
     }
     if (totalTargets === 0) {
-      console.warn("[router-poller] no active devices with api_user/api_password found in database");
+      console.warn("[router-poller] no ACCESS/BRAS devices with api_user/api_password found in database");
     }
     console.log(
-      `[router-poller] cycle done targets=${totalTargets} fetched=${totalFetched} upserted=${totalUpserted} in ${Date.now() - started}ms`
+      `[router-poller] cycle done targets=${totalTargets} fetched=${totalFetched} upserted=${totalUpserted} disconnected=${totalDisconnected} in ${Date.now() - started}ms`
     );
   } catch (error) {
     console.error(

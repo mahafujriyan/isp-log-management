@@ -50,7 +50,7 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
   const [form, setForm] = useState({
     name: "",
     ip: "",
-    config: "NAT" as "NAT" | "ACCESS",
+    config: "NAT" as "NAT" | "ACCESS" | "BRAS",
     nat_ip: "",
     user: "log",
     port: 514,
@@ -453,11 +453,12 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
                 <span className="mb-1 block text-[#64748B]">Router type</span>
                 <select
                   value={form.config}
-                  onChange={(e) => setForm((p) => ({ ...p, config: e.target.value as "NAT" | "ACCESS" }))}
+                  onChange={(e) => setForm((p) => ({ ...p, config: e.target.value as "NAT" | "ACCESS" | "BRAS" }))}
                   className="w-full rounded-md border border-[#E2E8F0] px-2.5 py-1.5"
                 >
                   <option value="NAT">NAT router (firewall logs)</option>
                   <option value="ACCESS">ACCESS router (PPPoE)</option>
+                  <option value="BRAS">BRAS router (PPPoE)</option>
                 </select>
               </label>
               <label>

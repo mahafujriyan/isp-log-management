@@ -111,4 +111,24 @@ export const MIGRATION_VERSIONS = [
       END $$;
     `,
   },
+  {
+    version: "007_device_api_sync",
+    description: "Track router API poll sync time and errors on devices",
+    sql: `
+      DO $$
+      DECLARE r RECORD;
+      BEGIN
+        FOR r IN SELECT schema_name FROM public.tenants WHERE status = 'active' LOOP
+          EXECUTE format(
+            'ALTER TABLE %I.devices ADD COLUMN IF NOT EXISTS last_api_sync TIMESTAMPTZ',
+            r.schema_name
+          );
+          EXECUTE format(
+            'ALTER TABLE %I.devices ADD COLUMN IF NOT EXISTS last_api_error TEXT',
+            r.schema_name
+          );
+        END LOOP;
+      END $$;
+    `,
+  },
 ];

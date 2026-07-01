@@ -124,26 +124,31 @@ async function enrichLogsFromPppoeTable(schemaName: string, logs: LogEntry[]): P
   const rows = await db.getMany<{ ip: string; username: string | null; mac_address: string | null }>(
     `SELECT host(last_private_ip) AS ip, username, mac_address
      FROM "${schema}".pppoe_users
-     WHERE host(last_private_ip) = ANY($1::text[])
+     WHERE status = 'active' AND host(last_private_ip) = ANY($1::text[])
      ORDER BY last_seen_at DESC`,
     [userIps]
   );
+  const isIpLike = (value?: string | null): boolean =>
+    !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
   const byIp = new Map<string, { username: string | null; mac_address: string | null }>();
   for (const row of rows) {
     if (!row.ip || byIp.has(row.ip)) continue;
+    if (isIpLike(row.username)) continue;
     byIp.set(row.ip, { username: row.username, mac_address: row.mac_address });
   }
 
   return logs.map((log) => {
-    if ((log.pppoe_user && log.pppoe_user !== "Unknown") && log.mac && log.mac !== "Unknown") {
+    const hasUser = log.pppoe_user && log.pppoe_user !== "Unknown" && !isIpLike(log.pppoe_user);
+    const hasMac = log.mac && log.mac !== "Unknown";
+    if (hasUser && hasMac) {
       return log;
     }
     const match = byIp.get(log.user_ip);
     if (!match) return log;
     return {
       ...log,
-      pppoe_user: log.pppoe_user && log.pppoe_user !== "Unknown" ? log.pppoe_user : (match.username ?? "Unknown"),
-      mac: log.mac && log.mac !== "Unknown" ? log.mac : (match.mac_address ?? "Unknown"),
+      pppoe_user: hasUser ? log.pppoe_user : (match.username ?? "Unknown"),
+      mac: hasMac ? log.mac : (match.mac_address ?? "Unknown"),
     };
   });
 }

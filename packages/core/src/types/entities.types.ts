@@ -55,7 +55,7 @@ export interface Device {
   id: number;
   name: string;
   ip: string;
-  config: "NAT" | "ACCESS";
+  config: "NAT" | "ACCESS" | "BRAS";
   nat_ip: string;
   user: string;
   port: number;
@@ -64,6 +64,8 @@ export interface Device {
   api_port?: number;
   has_api_password?: boolean;
   last_seen_at?: string | null;
+  last_api_sync?: string | null;
+  last_api_error?: string | null;
   status: "online" | "offline" | "receiving";
   users_today: number;
 }
@@ -95,7 +97,7 @@ export interface CreateTenantInput {
 export interface CreateDeviceInput {
   name: string;
   device_ip: string;
-  config_type?: "NAT" | "ACCESS";
+  config_type?: "NAT" | "ACCESS" | "BRAS";
   nat_ip?: string;
   syslog_user?: string;
   syslog_port?: number;

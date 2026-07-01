@@ -10,6 +10,11 @@ export interface PppoeActiveSession {
   router_name?: string;
 }
 
+function isIpLike(value?: string | null): boolean {
+  if (!value?.trim()) return false;
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
+}
+
 async function ensurePppoeColumns(schemaName: string): Promise<void> {
   const schema = assertValidTenantSchema(schemaName);
   await db.query(`ALTER TABLE "${schema}".pppoe_users ADD COLUMN IF NOT EXISTS router_name VARCHAR(128)`);
@@ -84,4 +89,55 @@ export async function upsertPppoeActiveSessions(
   }
 
   return { upserted };
+}
+
+/** Upsert active PPPoE rows and mark missing sessions as disconnected for this router. */
+export async function syncPppoeActiveSessions(
+  schemaName: string,
+  routerId: number | null,
+  sessions: PppoeActiveSession[]
+): Promise<{ upserted: number; disconnected: number }> {
+  const { upserted } = await upsertPppoeActiveSessions(schemaName, sessions);
+
+  if (!routerId) return { upserted, disconnected: 0 };
+
+  const schema = assertValidTenantSchema(schemaName);
+  const activeIps = sessions.map((s) => s.assigned_ip.trim()).filter(Boolean);
+
+  const result = await db.query(
+    `UPDATE "${schema}".pppoe_users
+     SET status = 'disconnected', updated_at = NOW()
+     WHERE router_id = $1
+       AND status = 'active'
+       AND (
+         cardinality($2::text[]) = 0
+         OR NOT (host(last_private_ip) = ANY($2))
+       )`,
+    [routerId, activeIps]
+  );
+
+  return { upserted, disconnected: result.rowCount ?? 0 };
+}
+
+/** Lookup PPPoE session by private IP for NAT log enrichment (active only). */
+export async function lookupPppoeByPrivateIp(
+  schemaName: string,
+  privateIp: string
+): Promise<{ username: string; mac_address: string } | null> {
+  if (!privateIp?.trim()) return null;
+  const schema = assertValidTenantSchema(schemaName);
+  const row = await db.getOne<{ username: string; mac_address: string | null }>(
+    `SELECT username, mac_address
+     FROM "${schema}".pppoe_users
+     WHERE status = 'active'
+       AND host(last_private_ip) = $1
+     ORDER BY last_seen_at DESC
+     LIMIT 1`,
+    [privateIp.trim()]
+  );
+  if (!row?.username || isIpLike(row.username)) return null;
+  return {
+    username: row.username,
+    mac_address: row.mac_address?.trim() ?? "",
+  };
 }

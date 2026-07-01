@@ -31,9 +31,11 @@ export function formatLogTime(iso?: string): string {
 }
 
 export function enrichLogEntryForDisplay(entry: LogEntry): LogEntry {
+  const user = entry.pppoe_user?.trim();
+  const isIpLike = !!user && /^\d{1,3}(\.\d{1,3}){3}$/.test(user);
   return {
     ...entry,
     mac: formatDisplayMac(entry.mac),
-    pppoe_user: entry.pppoe_user?.trim() ? entry.pppoe_user.trim() : "Unknown",
+    pppoe_user: user && !isIpLike ? user : "Unknown",
   };
 }

@@ -27,6 +27,13 @@ async function enrichParsedFromTenant(
 ): Promise<void> {
   const schema = assertValidTenantSchema(schemaName);
 
+  const isIpLike = (value?: string | null): boolean =>
+    !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
+
+  if (isIpLike(parsed.pppoe_user)) {
+    parsed.pppoe_user = "";
+  }
+
   if (!parsed.nat_ip && routerIp) {
     parsed.nat_ip = routerIp;
   }
@@ -34,11 +41,11 @@ async function enrichParsedFromTenant(
   if (!parsed.pppoe_user && parsed.user_ip) {
     const row = await db.getOne<{ username: string; mac_address: string | null }>(
       `SELECT username, mac_address FROM "${schema}".pppoe_users
-       WHERE host(last_private_ip) = $1
+       WHERE status = 'active' AND host(last_private_ip) = $1
        ORDER BY last_seen_at DESC LIMIT 1`,
       [parsed.user_ip]
     );
-    if (row) {
+    if (row?.username && !isIpLike(row.username)) {
       parsed.pppoe_user = row.username;
       if (!parsed.mac_address && row.mac_address) {
         parsed.mac_address = row.mac_address;
