@@ -59,4 +59,28 @@ export const MIGRATION_VERSIONS = [
     description: "Link operator to tenant_001 + fix stale log timestamps for dashboard",
     files: ["schema/seeds/05_fix_log_timestamps.sql"],
   },
+  {
+    version: "005_perf_indexes",
+    description: "Indexes for fast log/device queries on large session_logs tables",
+    sql: `
+      DO $$
+      DECLARE r RECORD;
+      BEGIN
+        FOR r IN SELECT schema_name FROM public.tenants WHERE status = 'active' LOOP
+          EXECUTE format(
+            'CREATE INDEX IF NOT EXISTS idx_session_logs_time ON %I.session_logs (log_time DESC)',
+            r.schema_name
+          );
+          EXECUTE format(
+            'CREATE INDEX IF NOT EXISTS idx_session_logs_router ON %I.session_logs (router_id, log_time DESC)',
+            r.schema_name
+          );
+          EXECUTE format(
+            'CREATE INDEX IF NOT EXISTS idx_syslogs_time ON %I.syslogs (received_at DESC)',
+            r.schema_name
+          );
+        END LOOP;
+      END $$;
+    `,
+  },
 ];

@@ -18,7 +18,8 @@ export async function GET(request: Request) {
   const deviceId = deviceIdParam ? Number(deviceIdParam) : undefined;
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
-  const requireConnected = searchParams.get("require_connected") !== "false";
+  const requireConnected = searchParams.get("require_connected") === "true";
+  const includeDbCounts = searchParams.get("include_db_counts") === "true";
   const schema = searchParams.get("schema") ?? undefined;
   const tenantIdParam = searchParams.get("tenant_id") ?? searchParams.get("tenantId");
   const requested = tenantIdParam ? Number(tenantIdParam) : undefined;
@@ -60,7 +61,8 @@ export async function GET(request: Request) {
     const routerConnected =
       router_connected ?? (schema_name ? await isAnyRouterConnected(schema_name) : false);
 
-    const tableCounts = schema_name ? await getTenantLogTableCounts(schema_name) : null;
+    const tableCounts =
+      includeDbCounts && schema_name ? await getTenantLogTableCounts(schema_name) : null;
     const totalInDb = tableCounts?.total ?? 0;
 
     const format = searchParams.get("format");

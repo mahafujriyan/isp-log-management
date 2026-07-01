@@ -39,7 +39,7 @@ function formatFetchError(err: unknown, action: string) {
 }
 
 export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelProps) {
-  const { tenantId, tenants, setTenantId } = useTenantContext();
+  const { tenantId, tenants, setTenantId, loading: tenantLoading } = useTenantContext();
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -66,25 +66,38 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
   const plural = variant === "servers" ? "servers" : "devices";
 
   const loadDevices = useCallback(async () => {
-    if (tenantId == null) return;
+    if (tenantLoading || tenantId == null) {
+      setLoading(tenantLoading);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch(`/api/devices?tenant_id=${tenantId}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 25_000);
+      const res = await fetch(`/api/devices?tenant_id=${tenantId}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
       const data = (await readApiResponse(res)) as { devices?: Device[] };
       setDevices(data.devices ?? []);
       setError(null);
     } catch (err) {
-      setError(formatFetchError(err, "Load"));
+      if (err instanceof Error && err.name === "AbortError") {
+        setError("Load timed out — database slow; try Recheck or contact admin");
+      } else {
+        setError(formatFetchError(err, "Load"));
+      }
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, tenantLoading]);
 
   useEffect(() => {
     loadDevices();
-    const interval = setInterval(loadDevices, 30_000);
+    if (tenantId == null) return;
+    const interval = setInterval(loadDevices, 60_000);
     return () => clearInterval(interval);
-  }, [loadDevices]);
+  }, [loadDevices, tenantId]);
 
   useEffect(() => {
     if (variant !== "servers") return;
@@ -272,9 +285,10 @@ export function DeviceManagerPanel({ variant = "devices" }: DeviceManagerPanelPr
         <div className="mb-3 rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#B91C1C]">{error}</div>
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-10">
+      {loading || tenantLoading ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-10">
           <Loader2 className="animate-spin text-[#1565C0]" size={24} />
+          <span className="text-[12px] text-[#64748B]">Loading devices…</span>
         </div>
       ) : (
         <div className="dashboard-scroll max-h-[560px] overflow-x-auto overflow-y-auto rounded-lg border border-[#E2E8F0]">

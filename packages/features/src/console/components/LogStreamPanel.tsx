@@ -49,8 +49,9 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
       const params = new URLSearchParams({
         tenant_id: String(tenantId),
         limit: "150",
-        require_connected: range === "1h" ? "true" : "false",
+        require_connected: "false",
       });
+      if (!totalInDb) params.set("include_db_counts", "true");
 
       if (activeTenant?.schema_name) {
         params.set("schema", activeTenant.schema_name);
@@ -69,7 +70,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
       const res = await fetch(`/api/logs?${params}`);
       const data = await res.json();
       if (!res.ok) {
-        setApiError(data.message ?? data.error ?? `HTTP ${res.status}`);
+        setApiError(data.detail ?? data.message ?? data.error ?? `HTTP ${res.status}`);
         return;
       }
       if (Array.isArray(data.logs)) {

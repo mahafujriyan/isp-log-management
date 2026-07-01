@@ -63,13 +63,10 @@ const deviceSelectSql = `
          (d.api_password IS NOT NULL AND d.api_password <> '') AS has_api_password,
          d.status, d.last_seen_at, d.created_at,
          r.last_seen_at AS router_last_seen,
-         (
-           SELECT COUNT(DISTINCT NULLIF(TRIM(s.pppoe_user), ''))::int
-           FROM "%SCHEMA%".session_logs s
-           INNER JOIN "%SCHEMA%".routers r ON r.id = s.router_id
-           WHERE s.log_time >= CURRENT_DATE
-             AND host(r.router_ip) = host(d.device_ip)
-         ) AS users_today
+         COALESCE((
+           SELECT COUNT(*)::int FROM "%SCHEMA%".pppoe_users pu
+           WHERE pu.router_id = r.id AND pu.last_seen_at >= CURRENT_DATE
+         ), 0) AS users_today
   FROM "%SCHEMA%".devices d
   LEFT JOIN "%SCHEMA%".routers r ON host(r.router_ip) = host(d.device_ip)
 `;
@@ -373,8 +370,8 @@ export async function resolveDeviceRouterId(
 /** True when a device or its router sent syslog within 30 minutes. */
 export async function isAnyRouterConnected(schemaName: string): Promise<boolean> {
   const schema = assertValidTenantSchema(schemaName);
-  const row = await db.getOne<{ count: string }>(
-    `SELECT COUNT(*)::text AS count FROM (
+  const row = await db.getOne<{ online: boolean }>(
+    `SELECT EXISTS (
        SELECT 1 FROM "${schema}".devices d
        WHERE COALESCE(d.status, 'active') NOT IN ('disabled', 'offline')
          AND (
@@ -385,12 +382,9 @@ export async function isAnyRouterConnected(schemaName: string): Promise<boolean>
                AND r.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
            )
          )
-       UNION
-       SELECT 1 FROM "${schema}".routers r
-       WHERE r.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
-     ) online`
+     ) AS online`
   );
-  return Number(row?.count ?? 0) > 0;
+  return row?.online ?? false;
 }
 
 /** Router IDs for devices currently receiving syslog. */
