@@ -285,8 +285,10 @@ export async function ingestParsedLog(
 
   if (parsed.source_ip || parsed.nat_ip) {
     const touchIp = parsed.source_ip || parsed.nat_ip;
-    const { touchDeviceLastSeen } = await import("@isp/core/services/device.service");
-    await touchDeviceLastSeen(schema, touchIp).catch(() => {});
+    if (touchIp) {
+      const { touchDeviceLastSeen } = await import("@isp/core/services/device.service");
+      await touchDeviceLastSeen(schema, touchIp).catch(() => {});
+    }
   }
 
   return {

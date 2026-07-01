@@ -49,7 +49,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
       const params = new URLSearchParams({
         tenant_id: String(tenantId),
         limit: "150",
-        require_connected: "true",
+        require_connected: range === "1h" ? "true" : "false",
       });
 
       if (activeTenant?.schema_name) {
@@ -194,7 +194,9 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
       ) : logs.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC] px-4 py-10 text-center text-[13px] text-[#64748B]">
           <p className="font-medium text-[#334155]">
-            {routerConnected === false ? "Router not connected — logs hidden" : "No logs in this period"}
+            {routerConnected === false
+              ? "Router offline — MikroTik থেকে syslog আসছে না"
+              : "No logs in this period"}
           </p>
           <p className="mt-1">
             Tenant: <strong>{schemaName || activeTenant?.schema_name || (tenantId != null ? `id ${tenantId}` : "—")}</strong>
@@ -212,9 +214,15 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
             <p className="mt-2 text-[12px] text-[#C62828]">API error: {apiError}</p>
           )}
           {routerConnected === false && (
-            <p className="mt-2 text-[12px] text-[#C62828]">
-              Router connect নেই — Device Manager-এ username + password দিয়ে add করুন, MikroTik syslog server set করুন।
-            </p>
+            <div className="mt-3 rounded-lg bg-[#FFF8E1] px-3 py-2 text-left text-[12px] text-[#5D4037]">
+              <p className="font-medium">MikroTik setup (একবার করলেই হবে):</p>
+              <ol className="mt-1 list-decimal pl-4 space-y-0.5">
+                <li>Device IP = MikroTik Winbox IP (ভুল IP = সবসময় Offline)</li>
+                <li>MikroTik syslog target: <strong>160.187.175.30:514</strong> (UDP)</li>
+                <li>VPS SSH: <code>pm2 status</code> → isp-syslog-listener online</li>
+                <li>Filter <strong>All time</strong> দিন — DB-তে পুরনো log থাকলে দেখাবে</li>
+              </ol>
+            </div>
           )}
           {hint && <p className="mt-1 text-[12px] text-[#F57F17]">{hint}</p>}
           {socketLive && (socketStats?.processed ?? 0) > 0 && (

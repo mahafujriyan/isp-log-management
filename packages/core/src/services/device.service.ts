@@ -20,6 +20,7 @@ interface DeviceRow {
   status: string;
   last_seen_at: string | null;
   created_at: string;
+  router_last_seen?: string | null;
 }
 
 function isRecentlySeen(lastSeenAt: string | null): boolean {
@@ -29,9 +30,9 @@ function isRecentlySeen(lastSeenAt: string | null): boolean {
   return Date.now() - seen <= ROUTER_STALE_MINUTES * 60_000;
 }
 
-function mapDeviceStatus(row: Pick<DeviceRow, "status" | "last_seen_at">): Device["status"] {
+function mapDeviceStatus(row: Pick<DeviceRow, "status" | "last_seen_at" | "router_last_seen">): Device["status"] {
   if (row.status === "disabled" || row.status === "offline") return "offline";
-  if (isRecentlySeen(row.last_seen_at)) return "receiving";
+  if (isRecentlySeen(row.last_seen_at) || isRecentlySeen(row.router_last_seen ?? null)) return "receiving";
   if (row.status === "active" || row.status === "receiving") return "offline";
   return "online";
 }
@@ -61,6 +62,7 @@ const deviceSelectSql = `
          d.api_user, d.api_port,
          (d.api_password IS NOT NULL AND d.api_password <> '') AS has_api_password,
          d.status, d.last_seen_at, d.created_at,
+         r.last_seen_at AS router_last_seen,
          (
            SELECT COUNT(DISTINCT NULLIF(TRIM(s.pppoe_user), ''))::int
            FROM "%SCHEMA%".session_logs s
@@ -69,6 +71,7 @@ const deviceSelectSql = `
              AND host(r.router_ip) = host(d.device_ip)
          ) AS users_today
   FROM "%SCHEMA%".devices d
+  LEFT JOIN "%SCHEMA%".routers r ON host(r.router_ip) = host(d.device_ip)
 `;
 
 function deviceQuery(schema: string, where = "", order = "ORDER BY d.created_at DESC") {
@@ -367,14 +370,25 @@ export async function resolveDeviceRouterId(
   return row?.router_id ?? null;
 }
 
-/** True when at least one registered device sent syslog within 30 minutes. */
+/** True when a device or its router sent syslog within 30 minutes. */
 export async function isAnyRouterConnected(schemaName: string): Promise<boolean> {
   const schema = assertValidTenantSchema(schemaName);
   const row = await db.getOne<{ count: string }>(
-    `SELECT COUNT(*)::text AS count
-     FROM "${schema}".devices
-     WHERE last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
-       AND COALESCE(status, 'active') NOT IN ('disabled', 'offline')`
+    `SELECT COUNT(*)::text AS count FROM (
+       SELECT 1 FROM "${schema}".devices d
+       WHERE COALESCE(d.status, 'active') NOT IN ('disabled', 'offline')
+         AND (
+           d.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
+           OR EXISTS (
+             SELECT 1 FROM "${schema}".routers r
+             WHERE host(r.router_ip) = host(d.device_ip)
+               AND r.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
+           )
+         )
+       UNION
+       SELECT 1 FROM "${schema}".routers r
+       WHERE r.last_seen_at >= NOW() - INTERVAL '${ROUTER_STALE_MINUTES} minutes'
+     ) online`
   );
   return Number(row?.count ?? 0) > 0;
 }
