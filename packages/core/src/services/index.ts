@@ -45,3 +45,4 @@ export {
   toggleMetricVisibility,
   recordMetricsFromLogs,
 } from "@isp/core/services/metrics.service";
+export { upsertPppoeActiveSessions } from "@isp/core/services/pppoe-session.service";

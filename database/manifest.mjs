@@ -83,4 +83,32 @@ export const MIGRATION_VERSIONS = [
       END $$;
     `,
   },
+  {
+    version: "006_pppoe_session_columns",
+    description: "Add PPPoE session columns for router poller enrichment",
+    sql: `
+      DO $$
+      DECLARE r RECORD;
+      BEGIN
+        FOR r IN SELECT schema_name FROM public.tenants WHERE status = 'active' LOOP
+          EXECUTE format(
+            'ALTER TABLE %I.pppoe_users ADD COLUMN IF NOT EXISTS router_name VARCHAR(128)',
+            r.schema_name
+          );
+          EXECUTE format(
+            'ALTER TABLE %I.pppoe_users ADD COLUMN IF NOT EXISTS uptime VARCHAR(64)',
+            r.schema_name
+          );
+          EXECUTE format(
+            'ALTER TABLE %I.pppoe_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+            r.schema_name
+          );
+          EXECUTE format(
+            'CREATE INDEX IF NOT EXISTS idx_pppoe_users_private_ip ON %I.pppoe_users (last_private_ip)',
+            r.schema_name
+          );
+        END LOOP;
+      END $$;
+    `,
+  },
 ];

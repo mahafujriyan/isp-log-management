@@ -86,14 +86,18 @@ BEGIN
       last_private_ip INET,
       last_public_ip INET,
       router_id INT REFERENCES %I.routers(id) ON DELETE SET NULL,
+      router_name VARCHAR(128),
+      uptime VARCHAR(64),
       session_count BIGINT NOT NULL DEFAULT 0,
       first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       status VARCHAR(32) NOT NULL DEFAULT 'active'
     )
   $SQL$, p_schema_name, p_schema_name);
 
   EXECUTE format('CREATE INDEX IF NOT EXISTS idx_pppoe_users_mac ON %I.pppoe_users (mac_address)', p_schema_name);
+  EXECUTE format('CREATE INDEX IF NOT EXISTS idx_pppoe_users_private_ip ON %I.pppoe_users (last_private_ip)', p_schema_name);
 
   -- Primary MikroTik ingest target (session / NAT logs)
   EXECUTE format($SQL$

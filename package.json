@@ -63,6 +63,7 @@
     "db:register-sfp1": "node scripts/apply-register-sfp1.mjs",
     "db:sync-routers": "node scripts/sync-router-map.mjs",
     "syslog:listener": "npm run start -w @isp/syslog-listener",
+    "router:poller": "npm run start -w @isp/router-poller",
     "db:phase2": "cd scripts && psql -U loguser -d isp_logserver -f phase2-migration.sql",
     "db:phase8": "cd scripts && psql -U loguser -d isp_logserver -f phase8-migration.sql"
   },

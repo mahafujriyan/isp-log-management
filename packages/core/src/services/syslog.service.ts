@@ -109,6 +109,45 @@ function buildSyslogSelect(schema: string, options: SyslogQueryOptions): { sql: 
   return { sql, params };
 }
 
+async function enrichLogsFromPppoeTable(schemaName: string, logs: LogEntry[]): Promise<LogEntry[]> {
+  if (logs.length === 0) return logs;
+  const schema = assertValidTenantSchema(schemaName);
+  const userIps = Array.from(
+    new Set(
+      logs
+        .filter((log) => (!log.pppoe_user || log.pppoe_user === "Unknown") && !!log.user_ip)
+        .map((log) => log.user_ip)
+    )
+  );
+  if (userIps.length === 0) return logs;
+
+  const rows = await db.getMany<{ ip: string; username: string | null; mac_address: string | null }>(
+    `SELECT host(last_private_ip) AS ip, username, mac_address
+     FROM "${schema}".pppoe_users
+     WHERE host(last_private_ip) = ANY($1::text[])
+     ORDER BY last_seen_at DESC`,
+    [userIps]
+  );
+  const byIp = new Map<string, { username: string | null; mac_address: string | null }>();
+  for (const row of rows) {
+    if (!row.ip || byIp.has(row.ip)) continue;
+    byIp.set(row.ip, { username: row.username, mac_address: row.mac_address });
+  }
+
+  return logs.map((log) => {
+    if ((log.pppoe_user && log.pppoe_user !== "Unknown") && log.mac && log.mac !== "Unknown") {
+      return log;
+    }
+    const match = byIp.get(log.user_ip);
+    if (!match) return log;
+    return {
+      ...log,
+      pppoe_user: log.pppoe_user && log.pppoe_user !== "Unknown" ? log.pppoe_user : (match.username ?? "Unknown"),
+      mac: log.mac && log.mac !== "Unknown" ? log.mac : (match.mac_address ?? "Unknown"),
+    };
+  });
+}
+
 export async function getTenantSyslogs(
   schemaName: string,
   options: SyslogQueryOptions = {}
@@ -153,10 +192,11 @@ export async function getTenantSyslogs(
     const { sql, params } = buildSyslogSelect(schemaName, { ...syslogOpts, limit });
     addRows(await db.getMany<SyslogEntry>(sql, params));
 
-    return merged
+    const baseLogs = merged
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, limit)
       .map(enrichLogEntryForDisplay);
+    return await enrichLogsFromPppoeTable(schemaName, baseLogs);
   } catch (err) {
     console.error(`[logs] query failed for ${schemaName}:`, err instanceof Error ? err.message : err);
     return [];

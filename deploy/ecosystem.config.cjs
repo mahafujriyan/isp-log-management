@@ -91,5 +91,20 @@ module.exports = {
         SYSLOG_FILE: env.SYSLOG_FILE || "/var/log/mikrotik/isp-syslog.log",
       },
     },
+    {
+      name: "isp-router-poller",
+      cwd: path.join(root, "workers/router-poller"),
+      script: "npm",
+      args: "run start",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      max_memory_restart: "192M",
+      env: {
+        ...sharedEnv,
+        ROUTER_POLL_INTERVAL: env.ROUTER_POLL_INTERVAL || "15000",
+        ROUTER_POLL_SCHEMA: env.ROUTER_POLL_SCHEMA || "",
+      },
+    },
   ],
 };

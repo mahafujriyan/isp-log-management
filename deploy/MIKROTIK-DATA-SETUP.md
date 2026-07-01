@@ -27,8 +27,9 @@ cd /opt/isp-log-management   # your app path
 # All 4 processes must be "online"
 pm2 status
 
-# Must show: isp-operator, isp-syslog-listener, isp-marketing, isp-super-admin
+# Must show: isp-operator, isp-syslog-listener, isp-router-poller, isp-marketing, isp-super-admin
 pm2 logs isp-syslog-listener --lines 20
+pm2 logs isp-router-poller --lines 20
 
 # Firewall — UDP 514 open
 sudo ufw allow 514/udp
@@ -44,6 +45,12 @@ If `isp-syslog-listener` is **errored**:
 # SOCKET_PORT=3003
 # SYSLOG_UDP_PORT=514
 pm2 restart isp-syslog-listener
+```
+
+If `isp-router-poller` is **errored**:
+```bash
+# Device credentials must be saved in Device Manager (api_user/api_password/api_port)
+pm2 restart isp-router-poller
 ```
 
 ---
