@@ -20,6 +20,55 @@ export interface ReceiveSyslogResult {
   error?: string;
 }
 
+const TENANT_CACHE_TTL_MS = 5 * 60_000;
+
+interface TenantByIdEntry {
+  schema_name: string;
+  expiresAt: number;
+}
+
+interface TenantBySchemaEntry {
+  id: number;
+  schema_name: string;
+  expiresAt: number;
+}
+
+const tenantSchemaByIdCache = new Map<number, TenantByIdEntry>();
+const tenantBySchemaCache = new Map<string, TenantBySchemaEntry>();
+
+function getTenantSchemaByIdCached(tenantId: number): string | undefined {
+  const cached = tenantSchemaByIdCache.get(tenantId);
+  if (!cached) return undefined;
+  if (cached.expiresAt < Date.now()) {
+    tenantSchemaByIdCache.delete(tenantId);
+    return undefined;
+  }
+  return cached.schema_name;
+}
+
+function setTenantSchemaByIdCache(tenantId: number, schemaName: string): void {
+  tenantSchemaByIdCache.set(tenantId, {
+    schema_name: schemaName,
+    expiresAt: Date.now() + TENANT_CACHE_TTL_MS,
+  });
+}
+
+function getTenantBySchemaCached(schemaName: string): TenantBySchemaEntry | undefined {
+  const cached = tenantBySchemaCache.get(schemaName);
+  if (!cached) return undefined;
+  if (cached.expiresAt < Date.now()) {
+    tenantBySchemaCache.delete(schemaName);
+    return undefined;
+  }
+  return cached;
+}
+
+function setTenantBySchemaCache(id: number, schemaName: string): void {
+  const expiresAt = Date.now() + TENANT_CACHE_TTL_MS;
+  tenantBySchemaCache.set(schemaName, { id, schema_name: schemaName, expiresAt });
+  tenantSchemaByIdCache.set(id, { schema_name: schemaName, expiresAt });
+}
+
 const isIpLike = (value?: string | null): boolean =>
   !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
 
@@ -81,6 +130,7 @@ function parseMikroTikLogSummary(
 }
 
 export async function receiveSyslogMessage(input: ReceiveSyslogInput): Promise<ReceiveSyslogResult> {
+  const startedAt = Date.now();
   const routerIpHint = input.router_ip;
   const parsed = parseMikroTikSyslog(input.raw_message, routerIpHint);
   const routerIp = routerIpHint || parsed.source_ip || parsed.router_hostname;
@@ -89,25 +139,57 @@ export async function receiveSyslogMessage(input: ReceiveSyslogInput): Promise<R
   let schemaName = input.schema;
   let routerId: number | null = null;
 
+  const tResolveStart = Date.now();
   const existing = routerIp ? await resolveTenantForRouterIp(routerIp) : null;
+  const resolveMs = Date.now() - tResolveStart;
+
   if (existing) {
     tenantId = existing.tenant_id;
     schemaName = existing.schema_name;
     routerId = existing.router_id;
+    setTenantBySchemaCache(existing.tenant_id, existing.schema_name);
   }
 
   if (!schemaName && tenantId) {
-    const tenant = await getTenantById(tenantId);
-    schemaName = tenant?.schema_name;
+    const cachedSchema = getTenantSchemaByIdCached(tenantId);
+    if (cachedSchema !== undefined) {
+      schemaName = cachedSchema;
+    } else {
+      const tenant = await getTenantById(tenantId);
+      if (tenant) {
+        schemaName = tenant.schema_name;
+        setTenantBySchemaCache(tenant.id, tenant.schema_name);
+      }
+    }
+  }
+
+  if (!tenantId && schemaName) {
+    const cachedTenant = getTenantBySchemaCached(schemaName);
+    if (cachedTenant) {
+      tenantId = cachedTenant.id;
+    } else {
+      const tenant = await getTenantBySchema(schemaName);
+      if (tenant) {
+        tenantId = tenant.id;
+        setTenantBySchemaCache(tenant.id, tenant.schema_name);
+      }
+    }
   }
 
   if (!schemaName) {
     const fallback = process.env.DEFAULT_TENANT_SCHEMA;
     if (fallback) {
-      const tenant = await getTenantBySchema(fallback);
-      if (tenant) {
-        schemaName = tenant.schema_name;
-        tenantId = tenant.id;
+      const cachedTenant = getTenantBySchemaCached(fallback);
+      if (cachedTenant) {
+        schemaName = cachedTenant.schema_name;
+        tenantId = cachedTenant.id;
+      } else {
+        const tenant = await getTenantBySchema(fallback);
+        if (tenant) {
+          schemaName = tenant.schema_name;
+          tenantId = tenant.id;
+          setTenantBySchemaCache(tenant.id, tenant.schema_name);
+        }
       }
     }
   }
@@ -122,13 +204,26 @@ export async function receiveSyslogMessage(input: ReceiveSyslogInput): Promise<R
   }
 
   if (!routerId && routerIp && input.auto_register_router !== false) {
-    const ctx = await ensureRouter(schemaName, tenantId, routerIp, parsed.router_hostname);
-    routerId = ctx.router_id;
+    const existingRouter = await findRouterByIp(routerIp);
+    if (existingRouter) {
+      routerId = existingRouter.router_id;
+      if (!schemaName) schemaName = existingRouter.schema_name;
+      if (!tenantId) tenantId = existingRouter.tenant_id;
+      setTenantBySchemaCache(existingRouter.tenant_id, existingRouter.schema_name);
+    } else {
+      const ctx = await ensureRouter(schemaName, tenantId, routerIp, parsed.router_hostname);
+      routerId = ctx.router_id;
+      setTenantBySchemaCache(ctx.tenant_id, ctx.schema_name);
+    }
   }
 
+  const tEnrichStart = Date.now();
   const session = await enrichParsedFromTenant(schemaName, routerIp, parsed);
+  const enrichMs = Date.now() - tEnrichStart;
 
+  const tIngestStart = Date.now();
   const ingest = await ingestParsedLog(schemaName, tenantId, routerId, parsed);
+  const ingestMs = Date.now() - tIngestStart;
 
   if (tenantId) {
     const logEntry: LogEntry & { raw_message?: string } = {
@@ -146,6 +241,16 @@ export async function receiveSyslogMessage(input: ReceiveSyslogInput): Promise<R
     };
     const { recordMetricsFromLogs } = await import("@isp/core/services/metrics.service");
     await recordMetricsFromLogs(tenantId, [logEntry]).catch(() => {});
+  }
+
+  const totalMs = Date.now() - startedAt;
+  const perfMessage =
+    `[syslog-perf] resolveTenantForRouterIp=${resolveMs}ms ` +
+    `enrichParsedFromTenant=${enrichMs}ms ingestParsedLog=${ingestMs}ms total=${totalMs}ms`;
+  if (totalMs > 100) {
+    console.warn(`${perfMessage} router=${routerIp ?? "-"}`);
+  } else {
+    console.log(`${perfMessage} router=${routerIp ?? "-"}`);
   }
 
   return {

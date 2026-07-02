@@ -19,8 +19,56 @@ export interface IngestResult {
   schema_name: string;
 }
 
+const ROUTER_CACHE_TTL_MS = 5 * 60_000;
+
+interface RouterCacheEntry {
+  value: RouterContext | null;
+  expiresAt: number;
+}
+
+const routerContextCache = new Map<string, RouterCacheEntry>();
+
+function cacheKeyForIp(ip: string): string {
+  return ip.trim();
+}
+
+function getRouterContextFromCache(routerIp: string): RouterContext | null | undefined {
+  const key = cacheKeyForIp(routerIp);
+  const cached = routerContextCache.get(key);
+  if (!cached) return undefined;
+  if (cached.expiresAt < Date.now()) {
+    routerContextCache.delete(key);
+    return undefined;
+  }
+  return cached.value;
+}
+
+function setRouterContextCache(routerIp: string, value: RouterContext | null): void {
+  const expiresAt = Date.now() + ROUTER_CACHE_TTL_MS;
+  routerContextCache.set(cacheKeyForIp(routerIp), { value, expiresAt });
+  if (value) {
+    routerContextCache.set(cacheKeyForIp(value.router_ip), { value, expiresAt });
+    if (value.nat_ip) {
+      routerContextCache.set(cacheKeyForIp(value.nat_ip), { value, expiresAt });
+    }
+  }
+}
+
+function touchRouterContextCache(context: RouterContext): void {
+  setRouterContextCache(context.router_ip, context);
+  if (context.nat_ip) setRouterContextCache(context.nat_ip, context);
+}
+
 export async function findRouterByIp(routerIp: string): Promise<RouterContext | null> {
-  if (!routerIp) return null;
+  return resolveTenantForRouterIp(routerIp);
+}
+
+/** Resolve MikroTik source IP using router_tenant_map only (with 5-minute cache). */
+export async function resolveTenantForRouterIp(routerIp: string): Promise<RouterContext | null> {
+  if (!routerIp?.trim()) return null;
+
+  const cached = getRouterContextFromCache(routerIp);
+  if (cached !== undefined) return cached;
 
   const row = await db.getOne<{
     tenant_id: number;
@@ -34,10 +82,10 @@ export async function findRouterByIp(routerIp: string): Promise<RouterContext | 
      FROM public.router_tenant_map
      WHERE host(router_ip) = $1 OR host(nat_ip) = $1
      LIMIT 1`,
-    [routerIp]
+    [routerIp.trim()]
   );
 
-  return row
+  const context = row
     ? {
         tenant_id: row.tenant_id,
         schema_name: row.schema_name,
@@ -46,43 +94,9 @@ export async function findRouterByIp(routerIp: string): Promise<RouterContext | 
         nat_ip: row.nat_ip,
       }
     : null;
-}
 
-/** Match MikroTik source IP to a tenant via router map or devices table (any tenant). */
-export async function resolveTenantForRouterIp(routerIp: string): Promise<RouterContext | null> {
-  const mapped = await findRouterByIp(routerIp);
-  if (mapped) return mapped;
-
-  const tenants = await db.getMany<{ id: number; schema_name: string }>(
-    `SELECT id, schema_name FROM public.tenants ORDER BY id`
-  );
-
-  for (const tenant of tenants) {
-    const schema = assertValidTenantSchema(tenant.schema_name);
-    const device = await db.getOne<{
-      name: string;
-      device_ip: string;
-      nat_ip: string | null;
-      syslog_port: number;
-    }>(
-      `SELECT name, host(device_ip) AS device_ip, host(nat_ip) AS nat_ip, syslog_port
-       FROM "${schema}".devices
-       WHERE host(device_ip) = $1 OR host(nat_ip) = $1
-       LIMIT 1`,
-      [routerIp]
-    ).catch(() => null);
-
-    if (device) {
-      return syncDeviceAsRouter(schema, tenant.id, {
-        name: device.name,
-        device_ip: device.device_ip,
-        nat_ip: device.nat_ip,
-        syslog_port: device.syslog_port,
-      });
-    }
-  }
-
-  return null;
+  setRouterContextCache(routerIp, context);
+  return context;
 }
 
 export async function syncDeviceAsRouter(
@@ -116,13 +130,16 @@ export async function syncDeviceAsRouter(
     [tenantId, schema, device.device_ip, row.id, device.nat_ip ?? device.device_ip]
   );
 
-  return {
+  const context = {
     tenant_id: tenantId,
     schema_name: schema,
     router_id: row.id,
     router_ip: row.router_ip,
     nat_ip: row.nat_ip,
   };
+
+  touchRouterContextCache(context);
+  return context;
 }
 
 export async function ensureRouter(
@@ -167,13 +184,16 @@ export async function ensureRouter(
     [tenantId, schema, routerIp, row.id, row.nat_ip]
   );
 
-  return {
+  const context = {
     tenant_id: tenantId,
     schema_name: schema,
     router_id: row.id,
     router_ip: row.router_ip,
     nat_ip: row.nat_ip,
   };
+
+  touchRouterContextCache(context);
+  return context;
 }
 
 const isIpLikeValue = (value?: string | null): boolean =>

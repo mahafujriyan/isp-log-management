@@ -25,6 +25,64 @@ const METRIC_VALUE_KEYS: Record<string, keyof ParsedMetrics> = {
   active_connections: "activeConnections",
 };
 
+const DEFAULT_METRICS: Array<{
+  name: string;
+  display_name: string;
+  unit: string;
+  chart_type: "line" | "bar" | "pie";
+  color: string;
+  description: string;
+}> = [
+  {
+    name: "bandwidth",
+    display_name: "Total Bandwidth",
+    unit: "bps",
+    chart_type: "line",
+    color: "#0EA5E9",
+    description: "Total observed traffic in selected interval",
+  },
+  {
+    name: "active_users",
+    display_name: "Active PPPoE Users",
+    unit: "users",
+    chart_type: "line",
+    color: "#10B981",
+    description: "Currently active PPPoE users",
+  },
+  {
+    name: "active_connections",
+    display_name: "Active Connections",
+    unit: "connections",
+    chart_type: "bar",
+    color: "#F59E0B",
+    description: "Number of NAT connections in selected interval",
+  },
+  {
+    name: "protocol_dist",
+    display_name: "Protocol Usage",
+    unit: "count",
+    chart_type: "pie",
+    color: "#8B5CF6",
+    description: "Protocol distribution by connection count",
+  },
+  {
+    name: "top_ips",
+    display_name: "Top Destination IP",
+    unit: "count",
+    chart_type: "bar",
+    color: "#EC4899",
+    description: "Most visited destination IPs",
+  },
+  {
+    name: "error_rate",
+    display_name: "Error Rate",
+    unit: "%",
+    chart_type: "line",
+    color: "#EF4444",
+    description: "Estimated error rate",
+  },
+];
+
 function getInterval(range: string): MetricTimeRange {
   if (range === "1h" || range === "24h" || range === "7d" || range === "30d") return range;
   return "24h";
@@ -42,10 +100,34 @@ async function sessionLogsTableExists(schemaName: string): Promise<boolean> {
   return row?.exists ?? false;
 }
 
+async function ensureDefaultMetricDefinitions(): Promise<void> {
+  for (const metric of DEFAULT_METRICS) {
+    await db.query(
+      `INSERT INTO public.metrics
+         (name, display_name, description, unit, chart_type, color, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+       ON CONFLICT (name) DO UPDATE SET
+         display_name = EXCLUDED.display_name,
+         description = EXCLUDED.description,
+         unit = EXCLUDED.unit,
+         chart_type = EXCLUDED.chart_type,
+         color = EXCLUDED.color,
+         is_active = TRUE`,
+      [
+        metric.name,
+        metric.display_name,
+        metric.description,
+        metric.unit,
+        metric.chart_type,
+        metric.color,
+      ]
+    );
+  }
+}
+
 /** Fast indexed read — avoids merging syslogs + full table scans. */
 async function fetchMetricLogs(schemaName: string, interval: string): Promise<MikroTikLog[]> {
   const schema = assertValidTenantSchema(schemaName);
-  if (!(await sessionLogsTableExists(schema))) return [];
 
   const rows = await db.getMany<{
     log_time: string;
@@ -89,7 +171,6 @@ async function fetchProtocolDistribution(
   interval: string
 ): Promise<MetricChartPoint[]> {
   const schema = assertValidTenantSchema(schemaName);
-  if (!(await sessionLogsTableExists(schema))) return [];
 
   const rows = await db.getMany<{ name: string; value: string }>(
     `SELECT COALESCE(NULLIF(UPPER(protocol), ''), 'UNKNOWN') AS name, COUNT(*)::text AS value
@@ -108,7 +189,6 @@ async function fetchTopVisitedIps(
   interval: string
 ): Promise<MetricChartPoint[]> {
   const schema = assertValidTenantSchema(schemaName);
-  if (!(await sessionLogsTableExists(schema))) return [];
 
   const rows = await db.getMany<{ name: string; value: string }>(
     `SELECT host(visited_ip) AS name, COUNT(*)::text AS value
@@ -131,6 +211,7 @@ async function fetchActivePppoeUsers(schemaName: string): Promise<number> {
 }
 
 export async function ensureTenantMetricSettings(tenantId: number): Promise<void> {
+  await ensureDefaultMetricDefinitions();
   await db.query(
     `INSERT INTO public.tenant_metric_settings (tenant_id, metric_id, is_visible, position, chart_size, refresh_interval)
      SELECT $1, m.id, TRUE, m.id - 1, 'medium', 5
@@ -163,10 +244,12 @@ export async function getVisibleMetricsWithData(
   const tenant = await getTenantById(tenantId);
   if (!tenant) return [];
 
+  const hasSessionLogs = await sessionLogsTableExists(tenant.schema_name);
+
   const [metricLogs, protocolDist, topIps, activePppoe] = await Promise.all([
-    fetchMetricLogs(tenant.schema_name, interval),
-    fetchProtocolDistribution(tenant.schema_name, interval),
-    fetchTopVisitedIps(tenant.schema_name, interval),
+    hasSessionLogs ? fetchMetricLogs(tenant.schema_name, interval) : Promise.resolve([]),
+    hasSessionLogs ? fetchProtocolDistribution(tenant.schema_name, interval) : Promise.resolve([]),
+    hasSessionLogs ? fetchTopVisitedIps(tenant.schema_name, interval) : Promise.resolve([]),
     fetchActivePppoeUsers(tenant.schema_name),
   ]);
 
