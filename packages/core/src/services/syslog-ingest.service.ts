@@ -1,8 +1,8 @@
 import { parseMikroTikSyslog } from "@isp/core/lib/parser";
 import { findRouterByIp, ensureRouter, ingestParsedLog, resolveTenantForRouterIp } from "@isp/core/lib/db/ingest";
 import { getTenantById, getTenantBySchema } from "@isp/core/services/tenant.service";
-import { assertValidTenantSchema } from "@isp/core/utils/schema.utils";
-import { db } from "@isp/core/lib/database";
+import { lookupPppoeByPrivateIp } from "@isp/core/services/pppoe-session.service";
+import type { PppoeSessionMatch } from "@isp/core/services/pppoe-session.service";
 import type { LogEntry } from "@isp/core/types";
 
 export interface ReceiveSyslogInput {
@@ -20,16 +20,20 @@ export interface ReceiveSyslogResult {
   error?: string;
 }
 
+const isIpLike = (value?: string | null): boolean =>
+  !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
+
+/**
+ * Enrich parsed NAT log with the customer PPPoE session (matched by private IP).
+ * Mutates `parsed` in place (username + customer MAC) and returns the matched
+ * session so callers can expose router_name / session_status / last_seen_at.
+ * Does NOT rewrite the raw log — display fields are regenerated downstream.
+ */
 async function enrichParsedFromTenant(
   schemaName: string,
   routerIp: string | undefined,
   parsed: ReturnType<typeof parseMikroTikSyslog>
-): Promise<void> {
-  const schema = assertValidTenantSchema(schemaName);
-
-  const isIpLike = (value?: string | null): boolean =>
-    !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
-
+): Promise<PppoeSessionMatch | null> {
   if (isIpLike(parsed.pppoe_user)) {
     parsed.pppoe_user = "";
   }
@@ -38,38 +42,24 @@ async function enrichParsedFromTenant(
     parsed.nat_ip = routerIp;
   }
 
-  if (!parsed.pppoe_user && parsed.user_ip) {
-    const row = await db.getOne<{ username: string; mac_address: string | null }>(
-      `SELECT username, mac_address FROM "${schema}".pppoe_users
-       WHERE status = 'active' AND host(last_private_ip) = $1
-       ORDER BY last_seen_at DESC LIMIT 1`,
-      [parsed.user_ip]
-    );
-    if (row?.username && !isIpLike(row.username)) {
-      parsed.pppoe_user = row.username;
-      if (!parsed.mac_address && row.mac_address) {
-        parsed.mac_address = row.mac_address;
-      }
-    }
+  if (!parsed.user_ip) return null;
+
+  const session = await lookupPppoeByPrivateIp(schemaName, parsed.user_ip).catch(() => null);
+  if (!session) return null;
+
+  // Always prefer real customer identity over NAT-log values (router MAC/IP).
+  parsed.pppoe_user = session.username;
+  if (session.mac_address) {
+    parsed.mac_address = session.mac_address;
   }
 
-  if (!parsed.raw_message.includes("pppoe_user=") && parsed.user_ip && parsed.visited_ip) {
-    const { formatIspLogLine } = await import("@isp/core/utils/mikrotik-parser.utils");
-    parsed.raw_message = formatIspLogLine({
-      pppoe_user: parsed.pppoe_user,
-      mac: parsed.mac_address,
-      user_ip: parsed.user_ip,
-      user_port: parsed.user_port ?? undefined,
-      nat_ip: parsed.nat_ip,
-      nat_port: parsed.nat_port ?? undefined,
-      visited_ip: parsed.visited_ip,
-      port: parsed.visited_port ?? 0,
-      protocol: parsed.protocol,
-    });
-  }
+  return session;
 }
 
-function parseMikroTikLogSummary(parsed: ReturnType<typeof parseMikroTikSyslog>) {
+function parseMikroTikLogSummary(
+  parsed: ReturnType<typeof parseMikroTikSyslog>,
+  session?: PppoeSessionMatch | null
+) {
   return {
     timestamp: parsed.timestamp.toISOString(),
     pppoe_user: parsed.pppoe_user,
@@ -84,6 +74,9 @@ function parseMikroTikLogSummary(parsed: ReturnType<typeof parseMikroTikSyslog>)
     log_topic: parsed.log_topic,
     source_ip: parsed.source_ip,
     raw_message: parsed.raw_message,
+    router_name: session?.router_name ?? null,
+    session_status: session?.status ?? null,
+    session_last_seen: session?.last_seen_at ?? null,
   };
 }
 
@@ -133,7 +126,7 @@ export async function receiveSyslogMessage(input: ReceiveSyslogInput): Promise<R
     routerId = ctx.router_id;
   }
 
-  await enrichParsedFromTenant(schemaName, routerIp, parsed);
+  const session = await enrichParsedFromTenant(schemaName, routerIp, parsed);
 
   const ingest = await ingestParsedLog(schemaName, tenantId, routerId, parsed);
 
@@ -157,7 +150,7 @@ export async function receiveSyslogMessage(input: ReceiveSyslogInput): Promise<R
 
   return {
     ok: true,
-    parsed: parseMikroTikLogSummary(parsed),
+    parsed: parseMikroTikLogSummary(parsed, session),
     ingest,
   };
 }

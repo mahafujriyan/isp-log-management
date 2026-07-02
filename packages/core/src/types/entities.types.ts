@@ -49,6 +49,9 @@ export interface LogEntry {
   port: number;
   protocol?: string;
   raw_message?: string;
+  router_name?: string | null;
+  session_status?: string | null;
+  session_last_seen?: string | null;
 }
 
 export interface Device {

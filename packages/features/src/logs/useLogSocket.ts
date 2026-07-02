@@ -17,12 +17,19 @@ interface SocketLogPayload {
   protocol: string;
   raw_message?: string;
   schema_name?: string;
+  router_name?: string | null;
+  session_status?: string | null;
+  session_last_seen?: string | null;
 }
 
+const isIpLike = (value?: string | null): boolean =>
+  !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
+
 function payloadToLogEntry(p: SocketLogPayload): LogEntry {
+  const user = p.pppoe_user?.trim();
   const entry: LogEntry = {
     time: p.timestamp,
-    pppoe_user: p.pppoe_user ?? "",
+    pppoe_user: user && !isIpLike(user) ? user : "",
     mac: p.mac_address ?? "",
     user_ip: p.user_ip ?? "",
     user_port: p.user_port ?? undefined,
@@ -32,6 +39,9 @@ function payloadToLogEntry(p: SocketLogPayload): LogEntry {
     nat_port: p.nat_port ?? undefined,
     protocol: p.protocol,
     raw_message: p.raw_message,
+    router_name: p.router_name ?? null,
+    session_status: p.session_status ?? null,
+    session_last_seen: p.session_last_seen ?? null,
   };
   if (!entry.raw_message) entry.raw_message = formatIspLogLine(entry);
   return entry;

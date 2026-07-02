@@ -119,19 +119,35 @@ export async function syncPppoeActiveSessions(
   return { upserted, disconnected: result.rowCount ?? 0 };
 }
 
-/** Lookup PPPoE session by private IP for NAT log enrichment (active only). */
+export interface PppoeSessionMatch {
+  username: string;
+  mac_address: string;
+  router_name: string | null;
+  status: string | null;
+  last_seen_at: string | null;
+}
+
+/**
+ * Lookup the latest PPPoE session for a private IP (NAT log enrichment).
+ * Prefers an active session; falls back to the most recent session for the IP.
+ */
 export async function lookupPppoeByPrivateIp(
   schemaName: string,
   privateIp: string
-): Promise<{ username: string; mac_address: string } | null> {
+): Promise<PppoeSessionMatch | null> {
   if (!privateIp?.trim()) return null;
   const schema = assertValidTenantSchema(schemaName);
-  const row = await db.getOne<{ username: string; mac_address: string | null }>(
-    `SELECT username, mac_address
+  const row = await db.getOne<{
+    username: string;
+    mac_address: string | null;
+    router_name: string | null;
+    status: string | null;
+    last_seen_at: string | null;
+  }>(
+    `SELECT username, mac_address, router_name, status, last_seen_at::text AS last_seen_at
      FROM "${schema}".pppoe_users
-     WHERE status = 'active'
-       AND host(last_private_ip) = $1
-     ORDER BY last_seen_at DESC
+     WHERE host(last_private_ip) = $1
+     ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, last_seen_at DESC
      LIMIT 1`,
     [privateIp.trim()]
   );
@@ -139,5 +155,48 @@ export async function lookupPppoeByPrivateIp(
   return {
     username: row.username,
     mac_address: row.mac_address?.trim() ?? "",
+    router_name: row.router_name ?? null,
+    status: row.status ?? null,
+    last_seen_at: row.last_seen_at ?? null,
   };
+}
+
+/** Batch variant — returns a private-IP → session map for a set of IPs. */
+export async function lookupPppoeByPrivateIps(
+  schemaName: string,
+  privateIps: string[]
+): Promise<Map<string, PppoeSessionMatch>> {
+  const result = new Map<string, PppoeSessionMatch>();
+  const ips = Array.from(new Set(privateIps.filter((ip) => ip?.trim())));
+  if (ips.length === 0) return result;
+
+  const schema = assertValidTenantSchema(schemaName);
+  const rows = await db.getMany<{
+    ip: string;
+    username: string;
+    mac_address: string | null;
+    router_name: string | null;
+    status: string | null;
+    last_seen_at: string | null;
+  }>(
+    `SELECT host(last_private_ip) AS ip, username, mac_address, router_name,
+            status, last_seen_at::text AS last_seen_at
+     FROM "${schema}".pppoe_users
+     WHERE host(last_private_ip) = ANY($1::text[])
+     ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, last_seen_at DESC`,
+    [ips]
+  );
+
+  for (const row of rows) {
+    if (!row.ip || result.has(row.ip)) continue;
+    if (!row.username || isIpLike(row.username)) continue;
+    result.set(row.ip, {
+      username: row.username,
+      mac_address: row.mac_address?.trim() ?? "",
+      router_name: row.router_name ?? null,
+      status: row.status ?? null,
+      last_seen_at: row.last_seen_at ?? null,
+    });
+  }
+  return result;
 }

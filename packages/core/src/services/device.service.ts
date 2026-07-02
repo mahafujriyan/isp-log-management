@@ -23,6 +23,7 @@ interface DeviceRow {
   last_api_error: string | null;
   created_at: string;
   router_last_seen?: string | null;
+  router_last_log?: string | null;
 }
 
 function isRecentlySeen(lastSeenAt: string | null): boolean {
@@ -33,13 +34,17 @@ function isRecentlySeen(lastSeenAt: string | null): boolean {
 }
 
 function mapDeviceStatus(
-  row: Pick<DeviceRow, "status" | "last_seen_at" | "router_last_seen" | "last_api_sync">
+  row: Pick<
+    DeviceRow,
+    "status" | "last_seen_at" | "router_last_seen" | "last_api_sync" | "router_last_log"
+  >
 ): Device["status"] {
   if (row.status === "disabled" || row.status === "offline") return "offline";
   if (
     isRecentlySeen(row.last_seen_at) ||
     isRecentlySeen(row.router_last_seen ?? null) ||
-    isRecentlySeen(row.last_api_sync)
+    isRecentlySeen(row.last_api_sync) ||
+    isRecentlySeen(row.router_last_log ?? null)
   ) {
     return "receiving";
   }
@@ -82,6 +87,10 @@ const deviceSelectSql = `
          (d.api_password IS NOT NULL AND d.api_password <> '') AS has_api_password,
          d.status, d.last_seen_at, d.last_api_sync, d.last_api_error, d.created_at,
          r.last_seen_at AS router_last_seen,
+         (
+           SELECT MAX(sl.log_time) FROM "%SCHEMA%".session_logs sl
+           WHERE sl.router_id = r.id
+         ) AS router_last_log,
          COALESCE((
            SELECT COUNT(*)::int FROM "%SCHEMA%".pppoe_users pu
            WHERE pu.router_id = r.id AND pu.last_seen_at >= CURRENT_DATE
@@ -316,13 +325,13 @@ export async function touchDeviceLastSeen(schemaName: string, deviceIp: string):
   await db.query(
     `UPDATE "${schema}".devices
      SET last_seen_at = NOW(), status = 'active'
-     WHERE host(device_ip) = $1`,
+     WHERE host(device_ip) = $1 OR host(nat_ip) = $1`,
     [deviceIp]
   );
   await db.query(
     `UPDATE "${schema}".routers
      SET last_seen_at = NOW(), status = 'active'
-     WHERE host(router_ip) = $1`,
+     WHERE host(router_ip) = $1 OR host(nat_ip) = $1`,
     [deviceIp]
   );
 }

@@ -109,46 +109,39 @@ function buildSyslogSelect(schema: string, options: SyslogQueryOptions): { sql: 
   return { sql, params };
 }
 
+const isIpLikeStr = (value?: string | null): boolean =>
+  !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
+
+/**
+ * Enrich display logs from the latest PPPoE session, matched by private IP.
+ * Always prefers the real customer username + MAC over NAT-log values
+ * (which carry the private IP as user and the router MAC).
+ */
 async function enrichLogsFromPppoeTable(schemaName: string, logs: LogEntry[]): Promise<LogEntry[]> {
   if (logs.length === 0) return logs;
-  const schema = assertValidTenantSchema(schemaName);
-  const userIps = Array.from(
-    new Set(
-      logs
-        .filter((log) => (!log.pppoe_user || log.pppoe_user === "Unknown") && !!log.user_ip)
-        .map((log) => log.user_ip)
-    )
-  );
+
+  const userIps = logs.map((log) => log.user_ip).filter((ip): ip is string => !!ip);
   if (userIps.length === 0) return logs;
 
-  const rows = await db.getMany<{ ip: string; username: string | null; mac_address: string | null }>(
-    `SELECT host(last_private_ip) AS ip, username, mac_address
-     FROM "${schema}".pppoe_users
-     WHERE status = 'active' AND host(last_private_ip) = ANY($1::text[])
-     ORDER BY last_seen_at DESC`,
-    [userIps]
-  );
-  const isIpLike = (value?: string | null): boolean =>
-    !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
-  const byIp = new Map<string, { username: string | null; mac_address: string | null }>();
-  for (const row of rows) {
-    if (!row.ip || byIp.has(row.ip)) continue;
-    if (isIpLike(row.username)) continue;
-    byIp.set(row.ip, { username: row.username, mac_address: row.mac_address });
-  }
+  const { lookupPppoeByPrivateIps } = await import("@isp/core/services/pppoe-session.service");
+  const byIp = await lookupPppoeByPrivateIps(schemaName, userIps).catch(() => new Map());
+
+  if (byIp.size === 0) return logs;
 
   return logs.map((log) => {
-    const hasUser = log.pppoe_user && log.pppoe_user !== "Unknown" && !isIpLike(log.pppoe_user);
-    const hasMac = log.mac && log.mac !== "Unknown";
-    if (hasUser && hasMac) {
-      return log;
-    }
     const match = byIp.get(log.user_ip);
     if (!match) return log;
+
+    const currentUserOk =
+      log.pppoe_user && log.pppoe_user !== "Unknown" && !isIpLikeStr(log.pppoe_user);
+
     return {
       ...log,
-      pppoe_user: hasUser ? log.pppoe_user : (match.username ?? "Unknown"),
-      mac: hasMac ? log.mac : (match.mac_address ?? "Unknown"),
+      pppoe_user: currentUserOk ? log.pppoe_user : match.username,
+      mac: match.mac_address || log.mac,
+      router_name: match.router_name ?? log.router_name ?? null,
+      session_status: match.status ?? log.session_status ?? null,
+      session_last_seen: match.last_seen_at ?? log.session_last_seen ?? null,
     };
   });
 }

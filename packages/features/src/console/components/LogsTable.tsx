@@ -38,6 +38,7 @@ export function LogsTable({ logs, compact = false }: LogsTableProps) {
             <th className={thClass}>Destination</th>
             <th className={thClass}>Dst port</th>
             <th className={thClass}>Proto</th>
+            <th className={thClass}>Router</th>
           </tr>
         </thead>
         <tbody>
@@ -71,6 +72,9 @@ export function LogsTable({ logs, compact = false }: LogsTableProps) {
                 <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 text-center">{log.port || "—"}</td>
                 <td className="border-b border-[#E2E8F0] px-2.5 py-1.5">
                   {protocolLabel(log.protocol, log.port)}
+                </td>
+                <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 whitespace-nowrap text-[11px] text-[#475569]">
+                  {log.router_name || "—"}
                 </td>
               </tr>
             );

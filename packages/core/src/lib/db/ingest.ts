@@ -176,19 +176,25 @@ export async function ensureRouter(
   };
 }
 
+const isIpLikeValue = (value?: string | null): boolean =>
+  !!value?.trim() && /^\d{1,3}(\.\d{1,3}){3}$/.test(value.trim());
+
 async function upsertPppoeUser(
   schema: string,
   routerId: number | null,
   parsed: ParsedMikroTikLog
 ): Promise<void> {
-  if (!parsed.pppoe_user) return;
+  // Never store an IP-like username (NAT logs carry the private IP, not a user).
+  if (!parsed.pppoe_user || isIpLikeValue(parsed.pppoe_user)) return;
 
+  // The router poller is authoritative for customer MAC — prefer the existing
+  // value so a NAT-log MAC (often the router/bridge MAC) never overwrites it.
   await db.query(
     `INSERT INTO "${schema}".pppoe_users
       (username, mac_address, last_private_ip, last_public_ip, router_id, session_count, last_seen_at)
      VALUES ($1, $2, $3::inet, $4::inet, $5, 1, NOW())
      ON CONFLICT (username) DO UPDATE SET
-       mac_address = COALESCE(NULLIF(EXCLUDED.mac_address, ''), "${schema}".pppoe_users.mac_address),
+       mac_address = COALESCE("${schema}".pppoe_users.mac_address, NULLIF(EXCLUDED.mac_address, '')),
        last_private_ip = COALESCE(EXCLUDED.last_private_ip, "${schema}".pppoe_users.last_private_ip),
        last_public_ip = COALESCE(EXCLUDED.last_public_ip, "${schema}".pppoe_users.last_public_ip),
        router_id = COALESCE(EXCLUDED.router_id, "${schema}".pppoe_users.router_id),
