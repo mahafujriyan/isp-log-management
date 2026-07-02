@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getVisibleMetricsWithData } from "@isp/core/services/metrics.service";
 import { apiError, parsePositiveInt, requirePermission, resolveTenantScope } from "@isp/core/utils/api.utils";
+import { withRequestCache } from "@isp/core/lib/cache/request-cache";
 
 export async function GET(request: Request) {
   const { error } = await requirePermission("LOGS_READ");
@@ -15,8 +16,13 @@ export async function GET(request: Request) {
   const range = searchParams.get("range") ?? "24h";
 
   try {
-    const metrics = await getVisibleMetricsWithData(tenantId, range);
-    return NextResponse.json(metrics);
+    const cacheKey = `api:metrics:${tenantId}:${range}`;
+    const metrics = await withRequestCache(cacheKey, 5, () =>
+      getVisibleMetricsWithData(tenantId, range)
+    );
+    return NextResponse.json(metrics, {
+      headers: { "Cache-Control": "private, max-age=0, s-maxage=5, stale-while-revalidate=15" },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown";
     if (message.includes("tenant_metric_settings") || message.includes("public.metrics")) {

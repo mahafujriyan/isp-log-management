@@ -3,6 +3,7 @@ import { apiError, canIngestLogs, parsePositiveInt, requirePermission, resolveTe
 import { ingestLogs, resolveLogsQuery, getTenantLogTableCounts, resolveDefaultTenant } from "@isp/core/services/syslog.service";
 import { resolveDeviceRouterId, isAnyRouterConnected } from "@isp/core/services/device.service";
 import { getTenantById } from "@isp/core/services/tenant.service";
+import { withRequestCache } from "@isp/core/lib/cache/request-cache";
 import type { IngestLogsInput } from "@isp/core/types";
 
 export async function GET(request: Request) {
@@ -35,66 +36,83 @@ export async function GET(request: Request) {
   }
 
   try {
-    const tenantRow = tenantId ? await getTenantById(tenantId) : null;
-    const lookupSchema =
-      schema ?? tenantRow?.schema_name ?? process.env.DEFAULT_TENANT_SCHEMA ?? "tenant_001";
+    const cacheKey = `api:logs:${scope.tenant_id ?? tenantId ?? "default"}:${searchParams.toString()}`;
+    const data = await withRequestCache(cacheKey, includeDbCounts ? 1 : 2, async () => {
+      const tenantRow = tenantId ? await getTenantById(tenantId) : null;
+      const lookupSchema =
+        schema ?? tenantRow?.schema_name ?? process.env.DEFAULT_TENANT_SCHEMA ?? "tenant_001";
 
-    let routerId: number | undefined;
-    if (deviceId && !Number.isNaN(deviceId)) {
-      const resolved = await resolveDeviceRouterId(lookupSchema, deviceId);
-      if (resolved) routerId = resolved;
-    }
+      let routerId: number | undefined;
+      if (deviceId && !Number.isNaN(deviceId)) {
+        const resolved = await resolveDeviceRouterId(lookupSchema, deviceId);
+        if (resolved) routerId = resolved;
+      }
 
-    const { logs, source, schema_name, router_connected } = await resolveLogsQuery({
-      tenant_id: tenantId,
-      schema: lookupSchema,
-      limit,
-      from,
-      to,
-      user,
-      mac,
-      nat_ip: routerId ? undefined : natIp,
-      router_id: routerId,
-      require_connected: requireConnected,
+      const { logs, source, schema_name, router_connected } = await resolveLogsQuery({
+        tenant_id: tenantId,
+        schema: lookupSchema,
+        limit,
+        from,
+        to,
+        user,
+        mac,
+        nat_ip: routerId ? undefined : natIp,
+        router_id: routerId,
+        require_connected: requireConnected,
+      });
+
+      const routerConnected =
+        router_connected ?? (schema_name ? await isAnyRouterConnected(schema_name) : false);
+
+      const tableCounts =
+        includeDbCounts && schema_name ? await getTenantLogTableCounts(schema_name) : null;
+      const totalInDb = tableCounts?.total ?? 0;
+
+      return {
+        logs,
+        source,
+        schema_name,
+        routerConnected,
+        tableCounts,
+        totalInDb,
+        routerId: routerId ?? null,
+      };
     });
-
-    const routerConnected =
-      router_connected ?? (schema_name ? await isAnyRouterConnected(schema_name) : false);
-
-    const tableCounts =
-      includeDbCounts && schema_name ? await getTenantLogTableCounts(schema_name) : null;
-    const totalInDb = tableCounts?.total ?? 0;
 
     const format = searchParams.get("format");
     if (format === "raw") {
-      return NextResponse.json(logs);
+      return NextResponse.json(data.logs, {
+        headers: { "Cache-Control": "private, max-age=0, s-maxage=1, stale-while-revalidate=5" },
+      });
     }
 
     return NextResponse.json({
-      logs,
-      count: logs.length,
-      total_in_db: totalInDb,
-      session_logs_in_db: tableCounts?.session_logs ?? 0,
-      syslogs_in_db: tableCounts?.syslogs ?? 0,
-      source,
-      schema_name,
+      logs: data.logs,
+      count: data.logs.length,
+      total_in_db: data.totalInDb,
+      session_logs_in_db: data.tableCounts?.session_logs ?? 0,
+      syslogs_in_db: data.tableCounts?.syslogs ?? 0,
+      source: data.source,
+      schema_name: data.schema_name,
       tenant_id: tenantId,
-      router_connected: routerConnected,
+      router_connected: data.routerConnected,
       hint:
-        !routerConnected && requireConnected
+        !data.routerConnected && requireConnected
           ? "Router offline — no logs shown until MikroTik sends syslog (check device password & remote logging)"
-          : logs.length === 0 && totalInDb > 0
+          : data.logs.length === 0 && data.totalInDb > 0
             ? "Logs in database but filtered — try All devices / All time"
-            : logs.length === 0
+            : data.logs.length === 0
               ? "No rows yet — add device with password and point MikroTik syslog to this server :514"
               : undefined,
       active_filters: {
         device_id: deviceId && !Number.isNaN(deviceId) ? deviceId : null,
-        router_id: routerId ?? null,
-        nat_ip: routerId ? null : natIp ?? null,
+        router_id: data.routerId,
+        nat_ip: data.routerId ? null : natIp ?? null,
         from: from ?? null,
         to: to ?? null,
       },
+    }, {
+      headers: { "Cache-Control": "private, max-age=0, s-maxage=1, stale-while-revalidate=5" },
     });
   } catch (error) {
     return apiError(

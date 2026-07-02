@@ -1,7 +1,6 @@
 "use client";
 
 import type { LogEntry } from "@isp/core/types";
-import { formatIspLogLine } from "@isp/core/utils/mikrotik-parser.utils";
 import { formatDisplayMac, formatDisplayUser, formatLogTime } from "@isp/core/utils/log-display.utils";
 import { Tag } from "@isp/ui/Tag";
 
@@ -24,12 +23,11 @@ function protocolLabel(protocol?: string, port?: number) {
 export function LogsTable({ logs, compact = false }: LogsTableProps) {
   return (
     <div className="dashboard-scroll max-h-[520px] overflow-auto rounded-lg border border-[#E2E8F0]">
-      <table className="w-full min-w-[1024px] border-separate border-spacing-0 text-[12px]">
+      <table className="w-full min-w-[860px] border-separate border-spacing-0 text-[12px]">
         <thead>
           <tr>
             <th className={thClass}>#</th>
             <th className={thClass}>Time</th>
-            {!compact && <th className={thClass}>Raw log</th>}
             <th className={thClass}>PPPoE / User</th>
             <th className={thClass}>MAC address</th>
             <th className={thClass}>Private IP</th>
@@ -54,11 +52,6 @@ export function LogsTable({ logs, compact = false }: LogsTableProps) {
                 <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 whitespace-nowrap text-[11px] text-[#334155]">
                   {formatLogTime(log.time)}
                 </td>
-                {!compact && (
-                  <td className="mono max-w-[320px] truncate border-b border-[#E2E8F0] px-2.5 py-1.5 text-[10px] text-[#64748B]">
-                    {formatIspLogLine(log)}
-                  </td>
-                )}
                 <td className="border-b border-[#E2E8F0] px-2.5 py-1.5 font-medium text-[#0F172A]">
                   {user}
                 </td>
