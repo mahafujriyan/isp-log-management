@@ -31,11 +31,11 @@ export const ADMIN_NAV = [
 ] as const;
 
 export const OPERATOR_NAV = [
+  { href: PORTAL_ROUTES.operator.home, label: "Dashboard", icon: "layout-dashboard" },
   { href: PORTAL_ROUTES.operator.logs, label: "Logs", icon: "activity" },
   { href: PORTAL_ROUTES.operator.users, label: "Users", icon: "users" },
   { href: PORTAL_ROUTES.operator.reports, label: "Reports", icon: "file-bar-chart" },
   { href: PORTAL_ROUTES.operator.settings, label: "Account", icon: "settings" },
-  { href: PORTAL_ROUTES.operator.legacyDashboard, label: "Full Console", icon: "panel-left" },
 ] as const;
 
 /** @deprecated Use OPERATOR_NAV — demo accounts now get the full operator experience */
