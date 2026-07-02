@@ -13,48 +13,53 @@ function pickDefaultTenant(tenants: Tenant[], sessionTenantId?: number): number 
 }
 
 export function useTenantContext() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const sessionTenantId = session?.user?.tenantId;
   const demo = isDemoAccount(session?.user?.role, session?.user?.accountType);
 
-  const [tenantId, setTenantId] = useState<number | null>(sessionTenantId ?? null);
+  const [tenantId, setTenantId] = useState<number | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tenantsLoaded, setTenantsLoaded] = useState(false);
 
+  // Resolve tenant from the session immediately — no network wait for operators.
   useEffect(() => {
-    if (demo && sessionTenantId) {
-      fetch(`/api/tenants`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            setTenants(data);
-            setTenantId(sessionTenantId);
-          } else {
-            setTenantId(sessionTenantId);
-          }
-        })
-        .catch(() => setTenantId(sessionTenantId))
-        .finally(() => setLoading(false));
-      return;
+    if (sessionTenantId != null) {
+      setTenantId((prev) => prev ?? sessionTenantId);
     }
+  }, [sessionTenantId]);
 
+  // Load the tenant list in the background (for the switcher / admin default).
+  useEffect(() => {
+    let active = true;
     fetch("/api/tenants")
       .then((r) => r.json())
       .then((data) => {
+        if (!active) return;
         if (Array.isArray(data) && data.length > 0) {
           setTenants(data);
-          setTenantId(pickDefaultTenant(data, sessionTenantId));
-        } else if (sessionTenantId) {
-          setTenantId(sessionTenantId);
+          setTenantId((prev) => prev ?? pickDefaultTenant(data, sessionTenantId));
+        } else if (sessionTenantId != null) {
+          setTenantId((prev) => prev ?? sessionTenantId);
         }
       })
       .catch(() => {
-        if (sessionTenantId) setTenantId(sessionTenantId);
+        if (active && sessionTenantId != null) {
+          setTenantId((prev) => prev ?? sessionTenantId);
+        }
       })
-      .finally(() => setLoading(false));
-  }, [demo, sessionTenantId]);
+      .finally(() => {
+        if (active) setTenantsLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [sessionTenantId]);
 
   const activeTenant = tenants.find((t) => t.id === tenantId) ?? null;
+
+  // Only "loading" until we know which tenant to query. The session gives this
+  // instantly for operators, so pages can fetch data without waiting for /api/tenants.
+  const loading = tenantId == null && (status === "loading" || !tenantsLoaded);
 
   return {
     tenantId,

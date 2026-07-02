@@ -31,7 +31,6 @@ export const ADMIN_NAV = [
 ] as const;
 
 export const OPERATOR_NAV = [
-  { href: PORTAL_ROUTES.operator.home, label: "Dashboard", icon: "layout-dashboard" },
   { href: PORTAL_ROUTES.operator.logs, label: "Logs", icon: "activity" },
   { href: PORTAL_ROUTES.operator.users, label: "Users", icon: "users" },
   { href: PORTAL_ROUTES.operator.reports, label: "Reports", icon: "file-bar-chart" },
