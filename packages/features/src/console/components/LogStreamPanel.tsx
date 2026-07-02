@@ -13,6 +13,19 @@ interface LogStreamPanelProps {
 
 type TimeRange = "1h" | "24h" | "7d" | "all";
 
+function mergeLatestLogs(primary: LogEntry[], fallback: LogEntry[], limit = 200): LogEntry[] {
+  const merged = new Map<string, LogEntry>();
+  const add = (log: LogEntry) => {
+    const key = `${log.time}|${log.user_ip}|${log.visited_ip}|${log.port}|${log.user_port ?? 0}`;
+    if (!merged.has(key)) merged.set(key, log);
+  };
+  for (const l of primary) add(l);
+  for (const l of fallback) add(l);
+  return [...merged.values()]
+    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+    .slice(0, limit);
+}
+
 export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
   const { tenantId, tenants, setTenantId, isDemo, activeTenant, loading: tenantLoading } = useTenantContext();
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -74,14 +87,15 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
         return;
       }
       if (Array.isArray(data.logs)) {
-        setLogs(data.logs);
+        const shouldMerge = !deviceFilter && range === "all";
+        setLogs((prev) => (shouldMerge ? mergeLatestLogs(data.logs, prev, 200) : data.logs));
         setSource(data.source ?? "");
         setTotalInDb(data.total_in_db ?? 0);
         setSessionLogsInDb(data.session_logs_in_db ?? 0);
         setSyslogsInDb(data.syslogs_in_db ?? 0);
         setSchemaName(data.schema_name ?? activeTenant?.schema_name ?? "");
         setHint(data.hint ?? "");
-        setRouterConnected(data.router_connected ?? null);
+        setRouterConnected(socketLive ? true : (data.router_connected ?? null));
         onStreamCount?.(data.logs.length);
       }
     } catch (err) {
@@ -89,7 +103,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, tenantLoading, activeTenant?.schema_name, range, deviceFilter, onStreamCount]);
+  }, [tenantId, tenantLoading, activeTenant?.schema_name, range, deviceFilter, onStreamCount, socketLive]);
 
   useEffect(() => {
     if (tenantId == null) return;
@@ -108,10 +122,13 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
     if (tenantLoading || tenantId == null) return;
     setLoading(true);
     loadLogs();
-    const ms = socketLive ? 8000 : 2000;
-    const interval = setInterval(loadLogs, ms);
+    const interval = setInterval(loadLogs, 2000);
     return () => clearInterval(interval);
-  }, [loadLogs, socketLive, tenantLoading, tenantId]);
+  }, [loadLogs, tenantLoading, tenantId]);
+
+  useEffect(() => {
+    if (socketLive) setRouterConnected(true);
+  }, [socketLive]);
 
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">

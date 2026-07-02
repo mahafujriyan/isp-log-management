@@ -90,7 +90,9 @@ export function useLogSocket(tenantId: number | undefined, onLog?: (entry: LogEn
       const socket = io(socketUrl, {
         path: "/socket.io",
         transports: ["websocket", "polling"],
-        reconnectionAttempts: 10,
+        reconnectionAttempts: Infinity,
+        reconnectionDelayMax: 10_000,
+        timeout: 10_000,
         reconnectionDelay: 2000,
       });
 
@@ -103,6 +105,9 @@ export function useLogSocket(tenantId: number | undefined, onLog?: (entry: LogEn
       });
 
       socket.on("disconnect", () => setConnected(false));
+      socket.io.on("reconnect", () => {
+        socket.emit("subscribe", { tenant_id: tenantId });
+      });
 
       socket.on("connect_error", (err: Error) => {
         setConnected(false);

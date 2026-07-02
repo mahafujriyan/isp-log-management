@@ -47,9 +47,21 @@ const UDP_PORT = Number(process.env.SYSLOG_UDP_PORT ?? 514);
 const SOCKET_PORT = Number(process.env.SOCKET_PORT ?? 3003);
 const SYSLOG_FILE = process.env.SYSLOG_FILE ?? "/var/log/mikrotik/isp-syslog.log";
 const TAIL_FILE = process.env.SYSLOG_TAIL_FILE !== "false";
+const QUEUE_BATCH_SIZE = Number(process.env.SYSLOG_QUEUE_BATCH_SIZE ?? 200);
+const QUEUE_DRAIN_INTERVAL_MS = Number(process.env.SYSLOG_QUEUE_DRAIN_MS ?? 200);
+const MAX_BATCHES_PER_DRAIN = Number(process.env.SYSLOG_QUEUE_MAX_BATCHES_PER_DRAIN ?? 3);
 
 let processed = 0;
 let errors = 0;
+const queue: Array<{ raw: string; host?: string }> = [];
+let isDrainingQueue = false;
+
+function enqueueRawMessage(raw: string, host?: string) {
+  queue.push({ raw, host });
+  if (queue.length === 10_001) {
+    console.warn(`[syslog] queue backlog high: ${queue.length} messages`);
+  }
+}
 
 async function handleRawMessage(raw: string, routerIp?: string) {
   const trimmed = raw.trim();
@@ -81,6 +93,21 @@ async function handleRawMessage(raw: string, routerIp?: string) {
   }
 }
 
+async function drainQueueBatch() {
+  if (isDrainingQueue || queue.length === 0) return;
+  isDrainingQueue = true;
+  try {
+    let cycles = 0;
+    while (queue.length > 0 && cycles < Math.max(1, MAX_BATCHES_PER_DRAIN)) {
+      const batch = queue.splice(0, Math.max(1, QUEUE_BATCH_SIZE));
+      await Promise.allSettled(batch.map((item) => handleRawMessage(item.raw, item.host)));
+      cycles += 1;
+    }
+  } finally {
+    isDrainingQueue = false;
+  }
+}
+
 const httpServer = http.createServer((_req, res) => {
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ status: "ok", processed, errors, udp_port: UDP_PORT }));
@@ -104,7 +131,7 @@ function startUdpListener() {
   const server = new SyslogServer();
 
   server.on("message", (msg: { message: string; host?: string }) => {
-    void handleRawMessage(msg.message, msg.host);
+    enqueueRawMessage(msg.message, msg.host);
   });
 
   server.on("error", (err: Error & { code?: string }) => {
@@ -151,7 +178,7 @@ function tailLogFile() {
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
       for (const line of lines) {
-        if (line.trim()) void handleRawMessage(line);
+        if (line.trim()) enqueueRawMessage(line);
       }
     });
 
@@ -169,6 +196,18 @@ httpServer.on("error", (err: NodeJS.ErrnoException) => {
 
 httpServer.listen(SOCKET_PORT, () => {
   console.log(`[syslog] Socket.IO on :${SOCKET_PORT}`);
+  setInterval(() => {
+    void drainQueueBatch();
+  }, Math.max(50, QUEUE_DRAIN_INTERVAL_MS));
+
+  setInterval(() => {
+    const len = queue.length;
+    console.log(`[syslog] queue length=${len}`);
+    if (len > 10_000) {
+      console.warn(`[syslog] queue length critical: ${len}`);
+    }
+  }, 5_000);
+
   startUdpListener();
   tailLogFile();
 });
