@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { OperatorStatCard } from "@isp/features/operator/components/OperatorPortalLayout";
+import { SecurityAlertBar } from "@isp/features/console/components/SecurityAlertBar";
 import Link from "next/link";
 import { PORTAL_ROUTES } from "@isp/core/constants/portal.constants";
 import { useRole } from "@isp/auth/hooks/useRole";
@@ -29,6 +30,7 @@ export default function OperatorHomePage() {
 
   return (
     <div>
+      <SecurityAlertBar tenantId={tenantId ?? undefined} />
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <OperatorStatCard title="Logs Today"    value={metrics.totalLogs.toLocaleString()} color="bg-[#1565c0]" />

@@ -1,16 +1,58 @@
 import { createDemoRequest } from "@isp/core/services/demo-request.service";
 import { corsHeaders, handleCorsPreflight, jsonWithCors } from "@isp/core/utils/cors.utils";
 import { mapDatabaseError } from "@isp/core/utils/db-error.utils";
+import { checkRateLimit } from "@isp/core/lib/security/rate-limit";
+import { recordSecurityEvent } from "@isp/core/services/security-events.service";
+import { getClientIp, getDeviceId } from "@isp/core/utils/net.utils";
 import { NextResponse } from "next/server";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// "১ device থেকে max 3, ১ IP থেকে max 5" account requests per 10 minutes.
+const WINDOW_SECONDS = 10 * 60;
+const DEVICE_LIMIT = 3;
+const IP_LIMIT = 5;
 
 export async function OPTIONS(request: Request) {
   return handleCorsPreflight(request) ?? new NextResponse(null, { status: 204 });
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const deviceId = getDeviceId(request);
+
   try {
+    // Per-IP and per-device throttling before doing any work.
+    const [ipLimit, deviceLimit] = await Promise.all([
+      checkRateLimit("account-request:ip", ip, IP_LIMIT, WINDOW_SECONDS),
+      checkRateLimit("account-request:device", deviceId, DEVICE_LIMIT, WINDOW_SECONDS),
+    ]);
+
+    if (!deviceLimit.allowed || !ipLimit.allowed) {
+      const scope = !deviceLimit.allowed ? "device" : "IP";
+      const retryAfter = Math.max(ipLimit.retryAfterSeconds, deviceLimit.retryAfterSeconds);
+      await recordSecurityEvent({
+        event_type: "account_request_blocked",
+        severity: "critical",
+        ip,
+        device_id: deviceId,
+        message: `Blocked account request — ${scope} limit exceeded (${
+          !deviceLimit.allowed ? `${deviceLimit.count}/${DEVICE_LIMIT} per device` : `${ipLimit.count}/${IP_LIMIT} per IP`
+        })`,
+        metadata: { scope, ip_count: ipLimit.count, device_count: deviceLimit.count },
+      });
+      return jsonWithCors(
+        request,
+        {
+          error:
+            "Too many requests from this " +
+            (scope === "device" ? "device" : "network") +
+            ". Please try again later.",
+        },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
+
     const body = await request.json();
 
     const full_name = String(body.full_name ?? "").trim();
@@ -39,6 +81,15 @@ export async function POST(request: Request) {
       plan_interest,
       message,
       source,
+    });
+
+    await recordSecurityEvent({
+      event_type: "account_request",
+      severity: "info",
+      ip,
+      device_id: deviceId,
+      email,
+      message: `New account/demo request from ${email} (${company})`,
     });
 
     return jsonWithCors(

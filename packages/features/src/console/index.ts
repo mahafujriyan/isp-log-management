@@ -15,5 +15,6 @@ export * from "./components/MenuManagerPanel";
 export * from "./components/MetricCard";
 export * from "./components/RoleManagerPanel";
 export * from "./components/SearchLogPanel";
+export * from "./components/SecurityAlertBar";
 export * from "./components/ServiceInfoPanel";
 export * from "./components/UserManagerPanel";

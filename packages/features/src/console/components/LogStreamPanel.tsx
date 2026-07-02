@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Device, LogEntry } from "@isp/core/types";
 import { LogsTable } from "@isp/features/console/components/LogsTable";
+import { SecurityAlertBar } from "@isp/features/console/components/SecurityAlertBar";
 import { useLogSocket } from "@isp/features/logs";
 import { useTenantContext } from "@isp/auth/hooks/useTenantContext";
 import { Loader2 } from "lucide-react";
@@ -132,6 +133,7 @@ export function LogStreamPanel({ onStreamCount }: LogStreamPanelProps) {
 
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+      <SecurityAlertBar tenantId={tenantId} />
       <div className="mb-2.5 flex flex-wrap items-center gap-2">
         {tenants.length > 1 && !isDemo && tenantId != null && (
           <select

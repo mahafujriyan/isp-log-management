@@ -1,4 +1,4 @@
-import { createClient, type RedisClientType } from "redis";
+import { getRedisClient } from "@isp/core/lib/cache/redis";
 
 interface MemoryEntry {
   value: unknown;
@@ -7,8 +7,6 @@ interface MemoryEntry {
 
 const memoryCache = new Map<string, MemoryEntry>();
 const MAX_MEMORY_ENTRIES = 500;
-let redisClient: RedisClientType | null = null;
-let redisInitAttempted = false;
 
 function pruneMemoryCache(now = Date.now()): void {
   for (const [key, entry] of memoryCache) {
@@ -38,26 +36,6 @@ function setToMemory(key: string, value: unknown, ttlSeconds: number): void {
   const expiresAt = Date.now() + Math.max(1, ttlSeconds) * 1000;
   memoryCache.set(key, { value, expiresAt });
   pruneMemoryCache();
-}
-
-async function getRedisClient(): Promise<RedisClientType | null> {
-  if (redisClient?.isOpen) return redisClient;
-  if (redisInitAttempted) return null;
-  redisInitAttempted = true;
-
-  const redisUrl = process.env.REDIS_URL?.trim();
-  if (!redisUrl) return null;
-
-  try {
-    const client = createClient({ url: redisUrl });
-    client.on("error", () => {});
-    await client.connect();
-    redisClient = client;
-    return redisClient;
-  } catch {
-    redisClient = null;
-    return null;
-  }
 }
 
 export async function getCachedJson<T>(key: string): Promise<T | null> {

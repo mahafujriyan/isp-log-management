@@ -1,4 +1,5 @@
 import { AUTH_CONFIG } from "@isp/core/config/auth.config";
+import { env } from "@isp/core/config/env.config";
 import { db } from "@isp/core/lib/database";
 import { deactivateDemoUser } from "@isp/core/services/demo-user.service";
 import type { AuthPortal, AuthUser } from "@isp/core/types/auth.types";
@@ -53,8 +54,12 @@ export async function authenticateUser(
       };
     }
   } catch {
-    // Fall through to demo users when database is unavailable
+    // Fall through to demo users when database is unavailable (non-production only)
   }
+
+  // Production authenticates strictly against the database — no hardcoded /
+  // in-memory credential fallback is ever consulted.
+  if (env.isProd) return null;
 
   const demo = AUTH_CONFIG.demoUsers.find((u) => u.email === normalizedEmail);
   if (!demo || demo.password !== password) return null;
