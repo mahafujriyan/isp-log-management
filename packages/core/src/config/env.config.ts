@@ -44,7 +44,11 @@ export const env = {
           : "dev-local-auth-secret-min-32-characters-change-me"),
       url: process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000",
       sessionMaxAge: 60 * 60 * 8,
-      superAdminCode: process.env.SUPER_ADMIN_SECURITY_CODE ?? "CYBER-LINK-2026",
+      // In production there is NO public fallback code — it must be set via env,
+      // otherwise super-admin login fails closed. Dev keeps a convenience default.
+      superAdminCode:
+        process.env.SUPER_ADMIN_SECURITY_CODE ??
+        (process.env.NODE_ENV === "production" ? "" : "CYBER-LINK-2026"),
       cookieSecure:
         process.env.AUTH_COOKIE_SECURE === "true"
           ? true

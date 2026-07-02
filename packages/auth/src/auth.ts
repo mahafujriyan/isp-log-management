@@ -50,7 +50,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         if (portal === "super_admin") {
-          if (securityCode !== getSuperAdminSecurityCode()) {
+          const configuredCode = getSuperAdminSecurityCode();
+          // Fail closed: if no code is configured (e.g. prod without the env var),
+          // super-admin login is disabled entirely rather than accepting a blank code.
+          if (!configuredCode) {
+            await recordSecurityEvent({
+              event_type: "login_blocked",
+              severity: "critical",
+              ip,
+              email: normalizedEmail,
+              message: `Super-admin login attempt while SUPER_ADMIN_SECURITY_CODE is not configured (${ip})`,
+              metadata: { portal },
+            });
+            throw new Error("Super admin access is not configured on this server.");
+          }
+          if (!securityCode || securityCode !== configuredCode) {
             await recordSecurityEvent({
               event_type: "login_failed",
               severity: "critical",

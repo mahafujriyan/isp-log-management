@@ -74,15 +74,17 @@ export function UserLoginForm() {
 
         <AuthSubmit loading={loading} label="Sign in to Operator Portal" />
 
-        <div className="rounded-xl bg-[#F8FAFC] px-4 py-3 text-[11px] leading-relaxed text-[#64748B] ring-1 ring-[#E2E8F0]">
-          <div className="mb-1 flex items-center gap-1.5 font-medium text-[#475569]">
-            <LockKeyhole size={12} />
-            Demo credentials
+        {process.env.NODE_ENV !== "production" && (
+          <div className="rounded-xl bg-[#F8FAFC] px-4 py-3 text-[11px] leading-relaxed text-[#64748B] ring-1 ring-[#E2E8F0]">
+            <div className="mb-1 flex items-center gap-1.5 font-medium text-[#475569]">
+              <LockKeyhole size={12} />
+              Dev credentials
+            </div>
+            Email: <code className="text-[#1565C0]">admin@cyberlink.com</code>
+            <br />
+            Password: <code className="text-[#1565C0]">Admin@123456</code>
           </div>
-          Email: <code className="text-[#1565C0]">admin@cyberlink.com</code>
-          <br />
-          Password: <code className="text-[#1565C0]">Admin@123456</code>
-        </div>
+        )}
       </form>
     </AuthShell>
   );

@@ -1,23 +1,15 @@
 import { db } from "@isp/core/lib/database";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
+  const noStore = { "Cache-Control": "no-store" };
   try {
-    const result = await db.query("SELECT NOW() as current_time");
-    return NextResponse.json({
-      status: "ok",
-      database: "connected",
-      timestamp: result.rows[0].current_time,
-      message: "Database connection successful!",
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: "Database connection failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
+    await db.query("SELECT 1");
+    // Never leak internal timestamps/versions/errors to unauthenticated callers.
+    return NextResponse.json({ status: "ok" }, { headers: noStore });
+  } catch {
+    return NextResponse.json({ status: "error" }, { status: 503, headers: noStore });
   }
 }

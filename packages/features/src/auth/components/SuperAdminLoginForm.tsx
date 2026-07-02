@@ -76,9 +76,9 @@ export function SuperAdminLoginForm() {
           <div className="flex items-start gap-2.5">
             <ShieldAlert size={16} className="mt-0.5 shrink-0 text-amber-400" />
             <div className="text-[11px] leading-relaxed text-slate-400">
-              This portal is monitored. Unauthorized access attempts are logged
-              and may result in IP blocking. Multi-factor authentication ready
-              for PHASE 5.
+              This portal is monitored. All access attempts are logged, and
+              repeated failed attempts automatically trigger a temporary IP
+              lockout.
             </div>
           </div>
         </div>
@@ -126,7 +126,7 @@ export function SuperAdminLoginForm() {
           onChange={setSecurityCode}
           placeholder="Enter security code"
           dark
-          hint="Default demo code: CYBER-LINK-2026"
+          hint={process.env.NODE_ENV !== "production" ? "Dev code: CYBER-LINK-2026" : undefined}
         />
         <AuthField
           label="Confirm security PIN"
@@ -150,11 +150,13 @@ export function SuperAdminLoginForm() {
 
         <AuthSubmit loading={loading} label="Authorize & Enter Admin Panel" dark />
 
-        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[11px] leading-relaxed text-slate-500">
-          Demo: <code className="text-amber-400">superadmin@cyberlink.com</code> /
-          <code className="text-amber-400"> Super@Secure2026!</code> / code{" "}
-          <code className="text-amber-400">CYBER-LINK-2026</code>
-        </div>
+        {process.env.NODE_ENV !== "production" && (
+          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[11px] leading-relaxed text-slate-500">
+            Dev only: <code className="text-amber-400">superadmin@cyberlink.com</code> /
+            <code className="text-amber-400"> Super@Secure2026!</code> / code{" "}
+            <code className="text-amber-400">CYBER-LINK-2026</code>
+          </div>
+        )}
       </form>
     </AuthShell>
   );
